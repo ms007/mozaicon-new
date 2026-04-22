@@ -238,7 +238,7 @@ describe('serializeDocument', () => {
 When output intentionally changes:
 
 ```bash
-npm run test:update-fixtures
+pnpm test:update-fixtures
 ```
 
 This script regenerates all fixtures. **Always review the diff before committing** — an unexpected change in a fixture is usually a regression.
@@ -351,12 +351,12 @@ Only assert exact equality when the math is integer (explicit input values, no t
 ## Running Tests
 
 ```bash
-npm run test              # Vitest watch mode
-npm run test -- run       # Single run (CI-style)
-npm run test:coverage     # With coverage report
-npm run test:e2e          # Playwright headless
-npm run test:e2e -- --headed   # Watch it happen
-npm run test:e2e -- --ui       # Playwright UI mode
+pnpm test              # Vitest watch mode
+pnpm test run          # Single run (CI-style)
+pnpm test:coverage     # With coverage report
+pnpm test:e2e          # Playwright headless
+pnpm test:e2e --headed # Watch it happen
+pnpm test:e2e --ui     # Playwright UI mode
 ```
 
 ## Coverage Expectations
@@ -378,9 +378,9 @@ We don't enforce thresholds in CI, but we track them in `coverage/` reports. If 
 
 ## CI
 
-`npm run check` runs:
+`pnpm check` runs:
 1. `tsc --noEmit` (types)
 2. `eslint` (lint)
 3. `vitest run` (unit + component)
 
-E2E runs separately via `npm run test:e2e` in a parallel CI job with a built dev server. See `.github/workflows/ci.yml`.
+E2E runs separately via `pnpm test:e2e` in a parallel CI job with a built dev server. See `.github/workflows/ci.yml`.

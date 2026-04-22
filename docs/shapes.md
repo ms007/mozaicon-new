@@ -26,7 +26,7 @@ Every shape must support these operations:
 | Drawing tool   | `src/features/toolbar/tools/`              | Optional |
 | Hit testing    | `src/lib/svg/hitTest.ts`                   | Yes      |
 
-If any of these is missing, `npm run check` should fail via the exhaustiveness check (see "Exhaustiveness" below).
+If any of these is missing, `pnpm check` should fail via the exhaustiveness check (see "Exhaustiveness" below).
 
 ## Existing Shape Types
 
@@ -203,7 +203,7 @@ At minimum, add:
 ### 10. Verify
 
 ```bash
-npm run check
+pnpm check
 ```
 
 If anything's missing, TypeScript or the tests will flag it. **Don't suppress errors with `as any` or `@ts-ignore`** — they're the safety net.
