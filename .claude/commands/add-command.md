@@ -11,8 +11,9 @@ Add a new undoable command called `$ARGUMENTS` to the store.
 ## Before starting
 
 Read:
+
 1. @docs/architecture.md — section "Command Pattern" (required)
-2. @src/store/commands/_template.ts — the `createCommand` helper
+2. @src/store/commands/\_template.ts — the `createCommand` helper
 3. @src/store/commands/moveShape.ts — a reference implementation
 4. @src/store/commands/moveShape.test.ts — the testing pattern
 

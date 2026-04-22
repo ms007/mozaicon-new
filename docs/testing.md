@@ -37,28 +37,27 @@ These are the easiest and highest-value tests. Every function in `lib/` should h
 `src/lib/svg/transform.test.ts`:
 
 ```ts
-import { describe, it, expect } from 'vitest';
-import { translatePath } from './transform';
+import { describe, it, expect } from 'vitest'
+import { translatePath } from './transform'
 
 describe('translatePath', () => {
   it('translates absolute moves', () => {
-    expect(translatePath('M0 0 L10 10', 5, 5)).toBe('M5 5 L15 15');
-  });
+    expect(translatePath('M0 0 L10 10', 5, 5)).toBe('M5 5 L15 15')
+  })
 
   it('preserves relative moves', () => {
-    expect(translatePath('M0 0 l10 10', 5, 5)).toBe('M5 5 l10 10');
-  });
+    expect(translatePath('M0 0 l10 10', 5, 5)).toBe('M5 5 l10 10')
+  })
 
   it('handles curves', () => {
-    expect(translatePath('M0 0 C10 0 10 10 20 10', 5, 5))
-      .toBe('M5 5 C15 5 15 15 25 15');
-  });
+    expect(translatePath('M0 0 C10 0 10 10 20 10', 5, 5)).toBe('M5 5 C15 5 15 15 25 15')
+  })
 
   it('is idempotent at zero', () => {
-    const input = 'M0 0 L10 10 Z';
-    expect(translatePath(input, 0, 0)).toBe(input);
-  });
-});
+    const input = 'M0 0 L10 10 Z'
+    expect(translatePath(input, 0, 0)).toBe(input)
+  })
+})
 ```
 
 **Pattern:** Cover the happy path, edge cases (zero, negatives), and invariants (idempotence, round-trips).
@@ -68,14 +67,16 @@ describe('translatePath', () => {
 ```ts
 describe('bboxOf', () => {
   it.each([
-    ['rect', { type: 'rect', x: 5, y: 10, width: 20, height: 30 },
-      { x: 5, y: 10, width: 20, height: 30 }],
-    ['circle', { type: 'circle', cx: 10, cy: 10, r: 5 },
-      { x: 5, y: 5, width: 10, height: 10 }],
+    [
+      'rect',
+      { type: 'rect', x: 5, y: 10, width: 20, height: 30 },
+      { x: 5, y: 10, width: 20, height: 30 },
+    ],
+    ['circle', { type: 'circle', cx: 10, cy: 10, r: 5 }, { x: 5, y: 5, width: 10, height: 10 }],
   ])('%s', (_name, shape, expected) => {
-    expect(bboxOf(shape as Shape)).toEqual(expected);
-  });
-});
+    expect(bboxOf(shape as Shape)).toEqual(expected)
+  })
+})
 ```
 
 ## Layer 2: Atoms and Commands
@@ -87,65 +88,81 @@ Test store logic in isolation using Jotai's `createStore`.
 `src/store/commands/moveShape.test.ts`:
 
 ```ts
-import { createStore } from 'jotai';
-import { describe, it, expect } from 'vitest';
-import { documentAtom } from '../atoms/document';
-import { undoStackAtom } from '../atoms/history';
-import { moveShapeCommand } from './moveShape';
+import { createStore } from 'jotai'
+import { describe, it, expect } from 'vitest'
+import { documentAtom } from '../atoms/document'
+import { undoStackAtom } from '../atoms/history'
+import { moveShapeCommand } from './moveShape'
 
 function makeStore(shapes: Shape[] = []) {
-  const store = createStore();
+  const store = createStore()
   store.set(documentAtom, {
-    id: 'test', name: '', viewBox: [0, 0, 100, 100], shapes,
-  });
-  return store;
+    id: 'test',
+    name: '',
+    viewBox: [0, 0, 100, 100],
+    shapes,
+  })
+  return store
 }
 
 describe('moveShapeCommand', () => {
   it('moves a rect by dx/dy', () => {
     const store = makeStore([
-      { type: 'rect', id: 'r1', name: 'r', visible: true, locked: false,
-        x: 10, y: 10, width: 20, height: 20 },
-    ]);
+      {
+        type: 'rect',
+        id: 'r1',
+        name: 'r',
+        visible: true,
+        locked: false,
+        x: 10,
+        y: 10,
+        width: 20,
+        height: 20,
+      },
+    ])
 
-    store.set(moveShapeCommand, { id: 'r1', dx: 5, dy: 7 });
+    store.set(moveShapeCommand, { id: 'r1', dx: 5, dy: 7 })
 
-    const doc = store.get(documentAtom);
-    expect(doc.shapes[0]).toMatchObject({ x: 15, y: 17 });
-  });
+    const doc = store.get(documentAtom)
+    expect(doc.shapes[0]).toMatchObject({ x: 15, y: 17 })
+  })
 
   it('pushes to undo stack', () => {
-    const store = makeStore([/* ... */]);
-    store.set(moveShapeCommand, { id: 'r1', dx: 5, dy: 5 });
-    expect(store.get(undoStackAtom)).toHaveLength(1);
-    expect(store.get(undoStackAtom)[0].label).toBe('Move shape');
-  });
+    const store = makeStore([
+      /* ... */
+    ])
+    store.set(moveShapeCommand, { id: 'r1', dx: 5, dy: 5 })
+    expect(store.get(undoStackAtom)).toHaveLength(1)
+    expect(store.get(undoStackAtom)[0].label).toBe('Move shape')
+  })
 
   it('is a no-op for unknown id', () => {
-    const store = makeStore([]);
-    store.set(moveShapeCommand, { id: 'nonexistent', dx: 5, dy: 5 });
-    expect(store.get(undoStackAtom)).toHaveLength(0);
-  });
-});
+    const store = makeStore([])
+    store.set(moveShapeCommand, { id: 'nonexistent', dx: 5, dy: 5 })
+    expect(store.get(undoStackAtom)).toHaveLength(0)
+  })
+})
 ```
 
 ### Pattern: Testing Undo/Redo
 
 ```ts
 it('round-trips through undo/redo', () => {
-  const store = makeStore([/* initial state */]);
-  const before = store.get(documentAtom);
+  const store = makeStore([
+    /* initial state */
+  ])
+  const before = store.get(documentAtom)
 
-  store.set(moveShapeCommand, { id: 'r1', dx: 10, dy: 10 });
-  const after = store.get(documentAtom);
-  expect(after).not.toEqual(before);
+  store.set(moveShapeCommand, { id: 'r1', dx: 10, dy: 10 })
+  const after = store.get(documentAtom)
+  expect(after).not.toEqual(before)
 
-  store.set(undoCommand);
-  expect(store.get(documentAtom)).toEqual(before);
+  store.set(undoCommand)
+  expect(store.get(documentAtom)).toEqual(before)
 
-  store.set(redoCommand);
-  expect(store.get(documentAtom)).toEqual(after);
-});
+  store.set(redoCommand)
+  expect(store.get(documentAtom)).toEqual(after)
+})
 ```
 
 ## Layer 3: Components
@@ -157,37 +174,39 @@ Use `@testing-library/react` with a Jotai `Provider` wrapping tests.
 `src/test/renderWithStore.tsx`:
 
 ```tsx
-import { Provider, createStore } from 'jotai';
-import { render } from '@testing-library/react';
+import { Provider, createStore } from 'jotai'
+import { render } from '@testing-library/react'
 
 export function renderWithStore(
   ui: React.ReactElement,
-  initialState?: (store: ReturnType<typeof createStore>) => void
+  initialState?: (store: ReturnType<typeof createStore>) => void,
 ) {
-  const store = createStore();
-  initialState?.(store);
-  const utils = render(<Provider store={store}>{ui}</Provider>);
-  return { ...utils, store };
+  const store = createStore()
+  initialState?.(store)
+  const utils = render(<Provider store={store}>{ui}</Provider>)
+  return { ...utils, store }
 }
 ```
 
 ### Example: Properties Editor
 
 ```tsx
-import { screen, fireEvent } from '@testing-library/react';
-import { renderWithStore } from '@/test/renderWithStore';
+import { screen, fireEvent } from '@testing-library/react'
+import { renderWithStore } from '@/test/renderWithStore'
 
 it('updates fill color on input', async () => {
   const { store } = renderWithStore(<PropertiesPanel />, (s) => {
-    s.set(documentAtom, { /* doc with one shape */ });
-    s.set(selectedIdsAtom, ['r1']);
-  });
+    s.set(documentAtom, {
+      /* doc with one shape */
+    })
+    s.set(selectedIdsAtom, ['r1'])
+  })
 
-  const fillInput = screen.getByLabelText('Fill');
-  fireEvent.change(fillInput, { target: { value: '#ff0000' } });
+  const fillInput = screen.getByLabelText('Fill')
+  fireEvent.change(fillInput, { target: { value: '#ff0000' } })
 
-  expect(store.get(documentAtom).shapes[0].fill).toBe('#ff0000');
-});
+  expect(store.get(documentAtom).shapes[0].fill).toBe('#ff0000')
+})
 ```
 
 **Rule:** Component tests should assert **observable behavior** (store state changed, text appeared), not implementation details (which atom was called).
@@ -207,30 +226,39 @@ SVG export is where snapshot testing shines — the output is deterministic and 
 `src/features/export/export.test.ts`:
 
 ```ts
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { describe, it, expect } from 'vitest';
-import { serializeDocument } from './serialize';
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, it, expect } from 'vitest'
+import { serializeDocument } from './serialize'
 
 function loadFixture(name: string) {
-  return readFileSync(
-    resolve(__dirname, '__fixtures__', name),
-    'utf-8'
-  ).trim();
+  return readFileSync(resolve(__dirname, '__fixtures__', name), 'utf-8').trim()
 }
 
 describe('serializeDocument', () => {
   it('serializes a single rect', () => {
     const doc: Document = {
-      id: 'd', name: 't', viewBox: [0, 0, 24, 24],
-      shapes: [{
-        type: 'rect', id: 'r1', name: 'r', visible: true, locked: false,
-        x: 2, y: 2, width: 20, height: 20, fill: '#000',
-      }],
-    };
-    expect(serializeDocument(doc)).toBe(loadFixture('single-rect.svg'));
-  });
-});
+      id: 'd',
+      name: 't',
+      viewBox: [0, 0, 24, 24],
+      shapes: [
+        {
+          type: 'rect',
+          id: 'r1',
+          name: 'r',
+          visible: true,
+          locked: false,
+          x: 2,
+          y: 2,
+          width: 20,
+          height: 20,
+          fill: '#000',
+        },
+      ],
+    }
+    expect(serializeDocument(doc)).toBe(loadFixture('single-rect.svg'))
+  })
+})
 ```
 
 ### Updating Golden Files
@@ -262,34 +290,34 @@ Reserve Playwright for flows that cross boundaries: real browser, real pointer e
 `e2e/draw-and-export.spec.ts`:
 
 ```ts
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
 test('draws a rect, moves it, exports valid SVG', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/')
 
   // Select rect tool
-  await page.getByRole('button', { name: 'Rectangle' }).click();
+  await page.getByRole('button', { name: 'Rectangle' }).click()
 
   // Draw on canvas
-  const canvas = page.locator('svg.canvas');
-  await canvas.click({ position: { x: 100, y: 100 } });
-  await canvas.click({ position: { x: 200, y: 200 } });
+  const canvas = page.locator('svg.canvas')
+  await canvas.click({ position: { x: 100, y: 100 } })
+  await canvas.click({ position: { x: 200, y: 200 } })
 
   // Move it
-  const handle = canvas.locator('[data-shape-id]').first();
-  await handle.dragTo(canvas, { targetPosition: { x: 300, y: 300 } });
+  const handle = canvas.locator('[data-shape-id]').first()
+  await handle.dragTo(canvas, { targetPosition: { x: 300, y: 300 } })
 
   // Export
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Export SVG' }).click(),
-  ]);
+  ])
 
-  const path = await download.path();
-  const content = await import('node:fs').then((fs) => fs.readFileSync(path, 'utf-8'));
-  expect(content).toMatch(/<rect/);
-  expect(content).toMatch(/viewBox="/);
-});
+  const path = await download.path()
+  const content = await import('node:fs').then((fs) => fs.readFileSync(path, 'utf-8'))
+  expect(content).toMatch(/<rect/)
+  expect(content).toMatch(/viewBox="/)
+})
 ```
 
 ### Visual Regression
@@ -298,8 +326,8 @@ Playwright can capture screenshots:
 
 ```ts
 await expect(canvas).toHaveScreenshot('rect-drawn.png', {
-  maxDiffPixels: 10,   // tolerate anti-aliasing jitter
-});
+  maxDiffPixels: 10, // tolerate anti-aliasing jitter
+})
 ```
 
 Store baselines in `e2e/__screenshots__/`. Regenerate with `--update-snapshots`.
@@ -311,14 +339,14 @@ Store baselines in `e2e/__screenshots__/`. Regenerate with `--update-snapshots`.
 When validating SVG output, parse it — string comparison is fragile:
 
 ```ts
-import { parseSvg } from '@/lib/svg/parse';
+import { parseSvg } from '@/lib/svg/parse'
 
 it('produces valid SVG', () => {
-  const output = serializeDocument(doc);
-  const parsed = parseSvg(output);
-  expect(parsed.viewBox).toEqual([0, 0, 24, 24]);
-  expect(parsed.shapes).toHaveLength(3);
-});
+  const output = serializeDocument(doc)
+  const parsed = parseSvg(output)
+  expect(parsed.viewBox).toEqual([0, 0, 24, 24])
+  expect(parsed.shapes).toHaveLength(3)
+})
 ```
 
 String comparison is fine for golden files (where we control every byte) but not for assertions about structure.
@@ -329,11 +357,11 @@ A strong invariant: **serialize → parse → serialize should be stable.**
 
 ```ts
 it('round-trips through serialize/parse', () => {
-  const once = serializeDocument(doc);
-  const parsed = parseDocument(once);
-  const twice = serializeDocument(parsed);
-  expect(twice).toBe(once);
-});
+  const once = serializeDocument(doc)
+  const parsed = parseDocument(once)
+  const twice = serializeDocument(parsed)
+  expect(twice).toBe(once)
+})
 ```
 
 If this fails, either serialization is lossy or parsing is lossy. Both are bugs.
@@ -343,7 +371,7 @@ If this fails, either serialization is lossy or parsing is lossy. Both are bugs.
 SVG coordinates are floats. Use `toBeCloseTo` for computed values:
 
 ```ts
-expect(bbox.width).toBeCloseTo(10.0, 5);
+expect(bbox.width).toBeCloseTo(10.0, 5)
 ```
 
 Only assert exact equality when the math is integer (explicit input values, no transforms).
@@ -379,6 +407,7 @@ We don't enforce thresholds in CI, but we track them in `coverage/` reports. If 
 ## CI
 
 `pnpm check` runs:
+
 1. `tsc --noEmit` (types)
 2. `eslint` (lint)
 3. `vitest run` (unit + component)
