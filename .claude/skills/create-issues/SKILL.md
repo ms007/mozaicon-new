@@ -1,11 +1,13 @@
 ---
-name: to-issues
+name: create-issues
 description: Break a plan, spec, or PRD into independently-grabbable GitHub issues using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
 ---
 
-# To Issues
+# Create Issues
 
 Break a plan into independently-grabbable GitHub issues using vertical slices (tracer bullets).
+
+Relationships between issues (parent/child, blocked-by) are set via GitHub's **native Issue Relationships** API — never via body text. This keeps the relationships queryable, visible in the GitHub UI, and free of drift.
 
 ## Process
 
@@ -49,15 +51,49 @@ Iterate until the user approves the breakdown.
 
 ### 5. Create the GitHub issues
 
-For each approved slice, create a GitHub issue using `gh issue create`. Use the issue body template below.
+For each approved slice in **dependency order** (blockers first, so blocker node IDs are known when creating dependents):
 
-Create issues in dependency order (blockers first) so you can reference real issue numbers in the "Blocked by" field.
+#### 5a. Create the issue
+
+```bash
+gh issue create --title "<slice title>" --body "<body from template below>"
+```
+
+Capture the returned issue URL and extract the number.
+
+#### 5b. Fetch the node ID
+
+```bash
+gh issue view <number> --json id --jq .id
+```
+
+Node IDs (not issue numbers) are required by the GraphQL relationship mutations.
+
+#### 5c. Link to parent PRD (if the source is a GitHub issue)
+
+If the source material is a PRD issue, link this slice as a sub-issue of that PRD:
+
+```bash
+gh api graphql \
+  -f query='mutation($p:ID!,$c:ID!){ addSubIssue(input:{issueId:$p,subIssueId:$c}){ issue{ number } } }' \
+  -f p="<PRD_NODE_ID>" -f c="<SLICE_NODE_ID>"
+```
+
+The PRD's node ID should be fetched once at the start of the run and cached for all subsequent slices.
+
+#### 5d. Mark blockers (if any)
+
+For each blocker slice the user identified in step 4:
+
+```bash
+gh api graphql \
+  -f query='mutation($i:ID!,$b:ID!){ addBlockedBy(input:{issueId:$i,blockingIssueId:$b}){ issue{ number } } }' \
+  -f i="<THIS_SLICE_NODE_ID>" -f b="<BLOCKER_NODE_ID>"
+```
+
+Repeat for each blocker.
 
 <issue-template>
-## Parent
-
-#<parent-issue-number> (if the source was a GitHub issue, otherwise omit this section)
-
 ## What to build
 
 A concise description of this vertical slice. Describe the end-to-end behavior, not layer-by-layer implementation.
@@ -67,13 +103,8 @@ A concise description of this vertical slice. Describe the end-to-end behavior, 
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Criterion 3
-
-## Blocked by
-
-- Blocked by #<issue-number> (if any)
-
-Or "None - can start immediately" if no blockers.
-
 </issue-template>
+
+Do NOT include `## Parent` or `## Blocked by` sections in the body — those relationships live in native GitHub fields now.
 
 Do NOT close or modify any parent issue.

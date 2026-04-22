@@ -1,5 +1,5 @@
 ---
-name: to-prd
+name: planning
 description: Turn the current conversation context into a PRD and submit it as a GitHub issue. Use when user wants to create a PRD from the current context.
 ---
 
@@ -15,7 +15,13 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
-3. Write the PRD using the template below and submit it as a GitHub issue.
+3. Submit the PRD as a GitHub issue using the template below for the body:
+
+   ```bash
+   gh issue create --title "..." --body "..."
+   ```
+
+   The PRD will be identified as a parent later via its native sub-issue relationships (no label needed).
 
 <prd-template>
 
