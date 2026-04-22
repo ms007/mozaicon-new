@@ -119,7 +119,7 @@ src/
 ### Comments
 
 - **Use comments sparingly.** Prefer self-documenting code: clear names, small functions, explicit types.
-- Comment the *why*, not the *what* — the code already shows what it does.
+- Comment the _why_, not the _what_ — the code already shows what it does.
 - Acceptable: non-obvious tradeoffs, workarounds with issue links, TODO/FIXME with context.
 - Avoid: restating the obvious, commented-out code, JSDoc on trivially-named functions.
 
@@ -139,6 +139,7 @@ src/
 **First: read `docs/shapes.md` in full.** It contains a step-by-step walkthrough with code examples.
 
 Quick checklist (full details in the doc):
+
 1. Add schema in `src/types/shapes.ts` (extend the discriminated union)
 2. Add renderer in `src/features/canvas/renderers/`
 3. Add tool in `src/features/toolbar/tools/` if user-drawable
@@ -162,6 +163,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 ### Writing tests
 
 **First: read `docs/testing.md`** for layer-specific patterns. Key rules:
+
 - Pure logic → Vitest unit test in the same folder
 - Store logic → use `createStore()` with seeded state, not mocks
 - SVG output → use golden files in `__fixtures__/`, not inline strings
@@ -200,6 +202,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 ## Definition of Done
 
 A change is done when:
+
 - [ ] `pnpm check` passes
 - [ ] New logic has tests
 - [ ] No new TypeScript errors or ESLint warnings

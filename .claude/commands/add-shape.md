@@ -11,6 +11,7 @@ Add a new shape type called `$ARGUMENTS` to the SVG Icon Creator.
 ## Before starting
 
 Read these files in order:
+
 1. @docs/shapes.md — the full walkthrough (required)
 2. @src/types/shapes.ts — the current shape union
 3. @src/features/canvas/renderers/ShapeRenderer.tsx — the renderer dispatch
@@ -40,6 +41,7 @@ Implement the new shape type following every step in `docs/shapes.md`:
 ## Report back
 
 When done, summarize:
+
 - Which files you created or modified
 - How `npm run check` finished (pass/fail)
 - Any decisions you made that aren't obvious from the code (e.g., how you handled edge cases)

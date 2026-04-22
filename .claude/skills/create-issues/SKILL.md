@@ -134,7 +134,7 @@ A concise description of this vertical slice. Describe the end-to-end behavior, 
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Criterion 3
-</issue-template>
+      </issue-template>
 
 Do NOT include `## Parent` or `## Blocked by` sections in the body — those relationships live in native GitHub fields now.
 

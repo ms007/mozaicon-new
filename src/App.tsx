@@ -6,5 +6,5 @@ export default function App() {
         Pixel-perfect icon design with keyboard-first workflow.
       </p>
     </main>
-  );
+  )
 }
