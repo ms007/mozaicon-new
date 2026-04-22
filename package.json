@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "check": "tsc -b && eslint . && vitest run"
+    "check": "tsc -b --noEmit && eslint . && prettier --check . && vitest run"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
