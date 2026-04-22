@@ -49,11 +49,17 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Create the GitHub issues
+### 5. Resolve the Project v2 (once per run)
+
+Resolve the linked Project v2 with a `Status` single-select field (`Todo`/`In Progress`/`In Review`/`Done`) per the shared mechanic in `start-issue/SKILL.md` (section "Shared: Project v2 resolution"). Cache the project ID, the `Status` field ID, and the `Todo` option ID for the rest of the run.
+
+If resolution fails, abort with: "No Project v2 with a Status field (Todo/In Progress/In Review/Done) linked to this repo — link one before using /create-issues." Do not silently create issues outside the project — that's the drift this step exists to prevent.
+
+### 6. Create the GitHub issues
 
 For each approved slice in **dependency order** (blockers first, so blocker node IDs are known when creating dependents):
 
-#### 5a. Create the issue
+#### 6a. Create the issue
 
 ```bash
 gh issue create --title "<slice title>" --body "<body from template below>"
@@ -61,7 +67,7 @@ gh issue create --title "<slice title>" --body "<body from template below>"
 
 Capture the returned issue URL and extract the number.
 
-#### 5b. Fetch the node ID
+#### 6b. Fetch the node ID
 
 ```bash
 gh issue view <number> --json id --jq .id
@@ -69,7 +75,32 @@ gh issue view <number> --json id --jq .id
 
 Node IDs (not issue numbers) are required by the GraphQL relationship mutations.
 
-#### 5c. Link to parent PRD (if the source is a GitHub issue)
+#### 6c. Add to Project v2 with Status = Todo
+
+```bash
+# Add as project item
+gh api graphql -f query='
+mutation($project:ID!,$content:ID!){
+  addProjectV2ItemById(input:{projectId:$project,contentId:$content}){ item{ id } }
+}' -f project="<PROJECT_ID>" -f content="<SLICE_NODE_ID>"
+```
+
+Capture the returned item ID, then set Status:
+
+```bash
+gh api graphql -f query='
+mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){
+  updateProjectV2ItemFieldValue(input:{
+    projectId:$project,itemId:$item,fieldId:$field,
+    value:{ singleSelectOptionId:$option }
+  }){ projectV2Item{ id } }
+}' -f project="<PROJECT_ID>" -f item="<ITEM_ID>" \
+     -f field="<STATUS_FIELD_ID>" -f option="<TODO_OPTION_ID>"
+```
+
+This ensures every new issue appears on the board in the `Todo` column immediately, instead of waiting for `/start-issue` to lazily add it as `In Progress`.
+
+#### 6d. Link to parent PRD (if the source is a GitHub issue)
 
 If the source material is a PRD issue, link this slice as a sub-issue of that PRD:
 
@@ -81,7 +112,7 @@ gh api graphql \
 
 The PRD's node ID should be fetched once at the start of the run and cached for all subsequent slices.
 
-#### 5d. Mark blockers (if any)
+#### 6e. Mark blockers (if any)
 
 For each blocker slice the user identified in step 4:
 
