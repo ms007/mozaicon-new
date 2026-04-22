@@ -26,16 +26,16 @@ If you're unsure which applies, skim all three — they're short and focused.
 ## Commands
 
 ```bash
-npm run dev         # Start dev server (Vite, port 5173)
-npm run build       # Type-check + production build
-npm run check       # Run tsc + eslint + vitest (use this before committing)
-npm run test        # Vitest watch mode
-npm run test:e2e    # Playwright tests
-npm run lint        # ESLint with --fix
-npm run format      # Prettier
+pnpm dev         # Start dev server (Vite, port 5173)
+pnpm build       # Type-check + production build
+pnpm check       # Run tsc + eslint + vitest (use this before committing)
+pnpm test        # Vitest watch mode
+pnpm test:e2e    # Playwright tests
+pnpm lint        # ESLint with --fix
+pnpm format      # Prettier
 ```
 
-**Always run `npm run check` after making changes.** It's the single source of truth for "does this pass CI".
+**Always run `pnpm check` after making changes.** It's the single source of truth for "does this pass CI".
 
 ## Architecture
 
@@ -147,7 +147,7 @@ Quick checklist (full details in the doc):
 6. Add bbox + translate + hit test in `src/lib/svg/`
 7. Write tests (schema, bbox, export round-trip)
 
-After adding, `npm run check` will flag any missed call sites via `assertNever`.
+After adding, `pnpm check` will flag any missed call sites via `assertNever`.
 
 ### Adding a new command
 
@@ -172,7 +172,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 - Open devtools, inspect the `<svg>` element — the DOM reflects atom state 1:1.
 - **Jotai DevTools** (`jotai-devtools`) shows all atom values and updates. Enable in dev mode via `<DevTools />`.
 - React DevTools Profiler helps spot unnecessary re-renders — if you see them, the atom is too coarse-grained. Split it.
-- Run `npm run test:e2e -- --headed` to watch Playwright drive the canvas.
+- Run `pnpm test:e2e --headed` to watch Playwright drive the canvas.
 
 ## What NOT to Do
 
@@ -182,7 +182,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 - ❌ Don't subscribe to a large atom just to read one field — create a derived atom.
 - ❌ Don't use `dangerouslySetInnerHTML` for user SVG content — parse it via DOMParser and validate.
 - ❌ Don't bypass the command pattern for "small" changes. Undo/redo depends on it.
-- ❌ Don't commit without running `npm run check`.
+- ❌ Don't commit without running `pnpm check`.
 
 ## MCP Servers Configured
 
@@ -200,7 +200,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 ## Definition of Done
 
 A change is done when:
-- [ ] `npm run check` passes
+- [ ] `pnpm check` passes
 - [ ] New logic has tests
 - [ ] No new TypeScript errors or ESLint warnings
 - [ ] SVG export still produces valid, optimized output (check `export.test.ts`)
