@@ -9,6 +9,7 @@ This file is the entry point. Before making non-trivial changes, read the releva
 - **`docs/architecture.md`** — State management, command pattern, rendering pipeline. Read this before touching anything in `src/store/`, `src/features/canvas/`, or adding new commands.
 - **`docs/shapes.md`** — How to add or modify shape types. Read this before touching `src/types/shapes.ts` or adding a new shape.
 - **`docs/testing.md`** — Testing patterns per layer, golden-file conventions, Jotai test helpers. Read this before writing tests.
+- **`docs/ui-primitives.md`** — shadcn vendoring, the `primitives/` wrapper seam, the three wrap patterns. Read this before adding a shadcn primitive or touching anything under `src/components/ui/` or `src/components/primitives/`.
 
 If you're unsure which applies, skim all three — they're short and focused.
 
@@ -156,6 +157,17 @@ After adding, `pnpm check` will flag any missed call sites via `assertNever`.
 
 Commands live in `src/store/commands/`. Use the `createCommand` helper — don't write raw write-only atoms. Every command must have at least one test covering the happy path and one no-op case.
 
+### Adding a shadcn primitive
+
+**First: read `docs/ui-primitives.md`.** It covers the wrapper convention and the three wrap patterns in full.
+
+Checklist:
+
+1. `pnpm dlx shadcn@latest add <name>` — writes to `src/components/ui/<name>.tsx` (vendored; don't hand-edit).
+2. Create `src/components/primitives/<Name>.tsx` — start with a named-re-export pass-through; upgrade to a composition wrapper or fork only when needed.
+3. Import from `@/components/primitives/<Name>` at every call-site. ESLint's `no-restricted-imports` rule blocks `@/components/ui/*` outside `src/components/primitives/**`.
+4. `pnpm check`.
+
 ### Adding a keyboard shortcut
 
 Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the registry — don't attach listeners in components.
@@ -184,6 +196,7 @@ Shortcuts are centralized in `src/features/shortcuts/bindings.ts`. Add to the re
 - ❌ Don't subscribe to a large atom just to read one field — create a derived atom.
 - ❌ Don't use `dangerouslySetInnerHTML` for user SVG content — parse it via DOMParser and validate.
 - ❌ Don't bypass the command pattern for "small" changes. Undo/redo depends on it.
+- ❌ Don't import from `@/components/ui/*` outside `src/components/primitives/**`. App code goes through the primitives seam; see `docs/ui-primitives.md`. ESLint will flag it.
 - ❌ Don't commit without running `pnpm check`.
 
 ## MCP Servers Configured
