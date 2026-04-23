@@ -5,3 +5,6 @@ playwright-report
 test-results
 # shadcn-generated primitives — regenerated verbatim, formatting follows upstream
 src/components/ui
+
+# Design-system HTML reference — committed as-is from the canonical source
+docs/design-system.html
