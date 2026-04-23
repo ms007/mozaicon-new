@@ -33,6 +33,7 @@ export default defineConfig([
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': ['error', { minimumDescriptionLength: 10 }],
+      '@typescript-eslint/consistent-type-definitions': 'off',
       'max-lines': ['warn', 300],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',

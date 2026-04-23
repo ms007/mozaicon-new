@@ -5,7 +5,11 @@ import type { Shape } from '@/types/shapes'
 
 import { RectRenderer } from './RectRenderer'
 
-export function ShapeRenderer({ shapeAtom }: { shapeAtom: PrimitiveAtom<Shape> }) {
+type ShapeRendererProps = {
+  shapeAtom: PrimitiveAtom<Shape>
+}
+
+export function ShapeRenderer({ shapeAtom }: ShapeRendererProps) {
   const shape = useAtomValue(shapeAtom)
 
   /* eslint-disable @typescript-eslint/no-unnecessary-condition -- exhaustive guard for future Shape variants */
