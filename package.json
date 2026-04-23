@@ -17,13 +17,13 @@
     "check": "tsc -b --noEmit && eslint . && prettier --check . && vitest run"
   },
   "dependencies": {
-    "@radix-ui/react-slot": "^1.2.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jotai": "^2.19.1",
     "jotai-devtools": "^0.13.1",
     "jotai-immer": "^0.4.3",
     "lucide-react": "^1.8.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwind-merge": "^3.5.0",

@@ -37,6 +37,37 @@ export default defineConfig([
       'max-lines': ['warn', 300],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/components/ui/*'],
+              message:
+                'Import shadcn primitives from @/components/primitives/* instead. The ui/ folder is shadcn-generated output and is overwritten on regeneration; the primitives/ layer is a stable pass-through seam so that app-wide imports never drift with the shadcn update cadence.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // shadcn-generated output. Treated as vendor code: do not reformat,
+    // do not lint for react-refresh boundaries — it is regenerated verbatim.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'simple-import-sort/imports': 'off',
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // The primitives layer is allowed to reach into shadcn output,
+    // and wrappers often re-export helpers (variants, types) alongside
+    // the component itself, which react-refresh can't statically verify.
+    files: ['src/components/primitives/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': 'off',
+      'react-refresh/only-export-components': 'off',
     },
   },
   {
