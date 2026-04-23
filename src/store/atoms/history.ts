@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 
 import type { Document } from '@/types/shapes'
 
-export interface HistoryEntry {
+export type HistoryEntry = {
   label: string
   before: Document
   after: Document
