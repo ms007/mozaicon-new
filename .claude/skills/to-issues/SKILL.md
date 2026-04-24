@@ -1,5 +1,5 @@
 ---
-name: create-issues
+name: to-issues
 description: Break a plan, spec, or PRD into independently-grabbable GitHub issues using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
 ---
 
@@ -23,7 +23,9 @@ If you have not already explored the codebase, do so to understand the current s
 
 Break the plan into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
-Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+Slices may be **HITL** or **sandcastle**. HITL slices require human interaction (architectural decision, design review, etc.). Sandcastle slices can be implemented and merged by the Sandcastle orchestrator (`/sandcastle-run`) without human interaction. Prefer sandcastle over HITL where possible.
+
+**Quality check on slice cuts** (not a `blockedBy` edge): if two slices will touch the same ≥2 files, they are probably the same slice or cut the wrong way. Re-cut rather than setting `blockedBy` — the orchestrator's merger will handle real git conflicts, but file-level overlap is usually a signal of a horizontal slice masquerading as two tracer bullets.
 
 <vertical-slice-rules>
 - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
@@ -36,24 +38,39 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 Present the proposed breakdown as a numbered list. For each slice, show:
 
 - **Title**: short descriptive name
-- **Type**: HITL / AFK
+- **Type**: HITL / sandcastle
 - **Blocked by**: which other slices (if any) must complete first
 - **User stories covered**: which user stories this addresses (if the source material has them)
+
+When proposing `Blocked by` edges, treat slice B as blocked by slice A if any of:
+
+- B needs code, schema, or infrastructure that A introduces
+- B depends on an API or type shape that A establishes
+- B and A would touch the same module in incompatible ways (pure file overlap → re-cut instead, see §3)
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
 - Are the dependency relationships correct?
 - Should any slices be merged or split further?
-- Are the correct slices marked as HITL and AFK?
+- Are the correct slices marked as HITL and sandcastle?
 
 Iterate until the user approves the breakdown.
 
-### 5. Resolve the Project v2 (once per run)
+### 5. Resolve the Project v2 + verify labels (once per run)
 
 Resolve the linked Project v2 with a `Status` single-select field (`Todo`/`In Progress`/`In Review`/`Done`) per the shared mechanic in `start-issue/SKILL.md` (section "Shared: Project v2 resolution"). Cache the project ID, the `Status` field ID, and the `Todo` option ID for the rest of the run.
 
 If resolution fails, abort with: "No Project v2 with a Status field (Todo/In Progress/In Review/Done) linked to this repo — link one before using /create-issues." Do not silently create issues outside the project — that's the drift this step exists to prevent.
+
+Also ensure the two routing labels exist (idempotent):
+
+```bash
+gh label create sandcastle --color "9cdcff" --description "Automatable slice for Sandcastle orchestrator" 2>/dev/null || true
+gh label create hitl       --color "E4E669" --description "Requires human interaction before merging" 2>/dev/null || true
+```
+
+Every sandcastle slice MUST have the `sandcastle` label applied at creation. Every HITL slice MUST have the `hitl` label. The orchestrator (`/sandcastle-run`) routes purely on these labels; a missing label means the slice is skipped.
 
 ### 6. Create the GitHub issues
 
@@ -61,9 +78,17 @@ For each approved slice in **dependency order** (blockers first, so blocker node
 
 #### 6a. Create the issue
 
+Apply the routing label based on the slice type (`sandcastle` for AFK slices, `hitl` for human-interaction slices):
+
 ```bash
-gh issue create --title "<slice title>" --body "<body from template below>"
+# sandcastle slice (orchestrator can implement it):
+gh issue create --title "<slice title>" --label "sandcastle" --body "<body from template below>"
+
+# HITL slice (requires human review / decision):
+gh issue create --title "<slice title>" --label "hitl" --body "<body from template below>"
 ```
+
+Additional type labels (`bug`/`chore`/etc.) may be added alongside, but the routing label is mandatory.
 
 Capture the returned issue URL and extract the number.
 

@@ -36,3 +36,11 @@ playwright/.cache/
 *.njsproj
 *.sln
 *.sw?
+
+# Sandcastle runtime artefacts
+.sandcastle/.env
+.sandcastle/logs/
+.sandcastle/worktrees/
+
+# Claude Code runtime artefacts
+.claude/scheduled_tasks.lock
