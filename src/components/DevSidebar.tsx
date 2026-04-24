@@ -15,7 +15,7 @@ export function DevSidebar() {
       <p className="text-muted-foreground text-xs tracking-wide uppercase">Dev Sidebar</p>
       <Button
         type="button"
-        variant="outline"
+        variant="default"
         size="sm"
         onClick={() => {
           addShape({ x: 4, y: 4, width: 16, height: 16, fill: '#000' })
