@@ -84,6 +84,18 @@ async function main(): Promise<void> {
 
   mkdirSync('.sandcastle/logs', { recursive: true })
 
+  // Recovery: reset any stale "In Progress" sandcastle sub-issues from a crashed run.
+  // The orchestrator is single-process, so any In Progress status at startup is stale.
+  const startupSubs = getSubIssues(owner, name, prdNumber, project.projectId)
+  const stale = getInProgressIssues(startupSubs)
+  if (stale.length > 0) {
+    console.log(`♻️  Resetting ${stale.length} stale "In Progress" sub-issue(s) to Todo:`)
+    for (const i of stale) {
+      console.log(`   #${i.number}: ${i.title}`)
+      setIssueStatus(project, i.id, project.todoOptionId)
+    }
+  }
+
   const ctx: Ctx = { prd, featureBranch, project, owner, name }
 
   for (let iter = 1; iter <= MAX_ITERATIONS; iter++) {
