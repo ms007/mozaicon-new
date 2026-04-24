@@ -258,7 +258,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans text-base antialiased tabular-nums;
+    @apply bg-background text-foreground font-sans text-base tabular-nums antialiased;
   }
 }
 
