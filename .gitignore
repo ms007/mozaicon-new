@@ -36,3 +36,8 @@ playwright/.cache/
 *.njsproj
 *.sln
 *.sw?
+
+# Sandcastle runtime artefacts
+.sandcastle/.env
+.sandcastle/logs/
+.sandcastle/worktrees/
