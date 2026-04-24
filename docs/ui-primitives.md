@@ -76,16 +76,15 @@ Pick the lightest pattern that solves the problem. Upgrade later if requirements
 
 Use when the shadcn component's default API is exactly what the app needs. The wrapper is a named re-export — nothing more.
 
-Live example: [`src/components/primitives/Button.tsx`](../src/components/primitives/Button.tsx)
+Live example: [`src/components/primitives/ToggleGroup.tsx`](../src/components/primitives/ToggleGroup.tsx)
 
 ```tsx
-// Pass-through wrapper for the shadcn Button primitive.
+// Pass-through wrapper for the shadcn ToggleGroup primitive (Pattern 1 — see
+// docs/ui-primitives.md). No behavior added; DS tokens in index.css retint it.
 //
-// App code must import from here (not from @/components/ui/button) so that
-// when shadcn is re-generated, we only need to reconcile one file. Re-exports
-// are named (not `export *`) so react-refresh can statically see what leaves
-// this module.
-export { Button, buttonVariants } from '@/components/ui/button'
+// Named re-exports (not `export *`) so react-refresh can statically see what
+// leaves this module.
+export { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 ```
 
 Why named re-exports: `export *` breaks the react-refresh boundary because the bundler can't statically enumerate what's leaving the module. List exports explicitly.
@@ -131,11 +130,13 @@ When forking, copy the shadcn file into `src/components/primitives/<Name>.tsx`, 
 
 The date is the day of the fork, ISO format (e.g. `2026-04-23`). The header is a tripwire: whoever next updates shadcn sees it and knows this file needs manual reconciliation rather than a blind regen.
 
+Live example: [`src/components/primitives/Button.tsx`](../src/components/primitives/Button.tsx). The tripwire header is right at the top of the file, and the fork collapses the shadcn variant/size surface onto the DS vocabulary — shadcn `default` → our `primary` (loud export action), shadcn `outline` → our `default` (quiet chrome), `secondary`/`link` removed, `ghost`/`destructive` kept, plus a `pressed` prop that surfaces toggle state via `aria-pressed` so DS pressed-state styling keys off the DOM attribute.
+
 ## CSS Tokens vs Wrappers
 
 Two separate concerns with a clean boundary:
 
-- **Design tokens** — colors, radii, shadows, spacing scales. Live in [`src/index.css`](../src/index.css) as CSS variables (`--primary`, `--radius`, …). Editing them retints the whole app uniformly, including the vendored `ui/` components, because shadcn reads the same variables. No wrapper needed.
+- **Design tokens** — colors, radii, shadows, spacing scales. Live in [`src/index.css`](../src/index.css) as CSS variables (`--primary`, `--radius`, …). Editing them retints the whole app uniformly, including the vendored `ui/` components, because shadcn reads the same variables. No wrapper needed. The full DS ↔ shadcn ↔ Tailwind mapping lives in [`docs/design-tokens.md`](./design-tokens.md).
 - **Behavior / API** — default variants, forwarded refs, composition, extra props. Live in the wrapper under `src/components/primitives/`.
 
 Rule of thumb: if the change is expressible as a CSS variable, put it in `src/index.css`. If it's expressible only in TSX (a different default `variant`, an always-on `size="icon"`, a new prop), put it in the wrapper.
