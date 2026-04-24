@@ -54,10 +54,15 @@ export default defineConfig([
   {
     // shadcn-generated output. Treated as vendor code: do not reformat,
     // do not lint for react-refresh boundaries — it is regenerated verbatim.
+    // Sibling ui/ imports (e.g. toggle-group → toggle) and `||` chains come
+    // straight from shadcn; we can't rewrite them without breaking byte-for-
+    // byte regen parity.
     files: ['src/components/ui/**/*.{ts,tsx}'],
     rules: {
       'simple-import-sort/imports': 'off',
       'react-refresh/only-export-components': 'off',
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
     },
   },
   {
