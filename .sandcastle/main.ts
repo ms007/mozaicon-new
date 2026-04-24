@@ -1,7 +1,12 @@
 import * as sandcastle from '@ai-hero/sandcastle'
-import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
-import { podman } from '@ai-hero/sandcastle/sandboxes/podman'
 import { mkdirSync } from 'node:fs'
+import {
+  docker,
+  featureVolumes,
+  issueVolumes,
+  removeVolumes,
+  workspaceVolumes,
+} from './lib/sandbox.ts'
 import {
   getRepoInfo,
   resolveProject,
@@ -28,19 +33,38 @@ import {
   runPnpmCheck,
   slugify,
   branchHasCommitsAhead,
+  branchExists,
+  remoteBranchExists,
 } from './lib/git.ts'
 
 const MAX_ITERATIONS = 10
-const MAX_PARALLEL = 4
+const MAX_PARALLEL = 3
 const POLL_INTERVAL_MS = 30_000
 
 const IMAGE_NAME = 'sandcastle:mozaicon'
 
-const sandboxProvider = () => {
-  const engine = process.env.SANDCASTLE_ENGINE ?? 'podman'
-  const opts = { imageName: IMAGE_NAME } as const
-  return engine === 'docker' ? docker(opts) : podman(opts)
-}
+/**
+ * Sandbox factory for an issue's implement/review run. Mounts persistent
+ * named volumes for `node_modules/` and `.pnpm-store/` so the heavy
+ * directories stay off the bind-mount FS — that keeps `chown` inside the
+ * 120 s container-start budget and lets `pnpm install --prefer-offline`
+ * reuse the cache between iterations.
+ */
+const sandboxForIssue = (repoName: string, issueNumber: number) =>
+  docker({
+    imageName: IMAGE_NAME,
+    volumes: workspaceVolumes(issueVolumes(repoName, issueNumber)),
+  })
+
+/**
+ * Sandbox factory for the merge-agent run. Volumes are scoped to the PRD's
+ * feature branch so successive merge attempts share the same install cache.
+ */
+const sandboxForMerge = (repoName: string, prdNumber: number) =>
+  docker({
+    imageName: IMAGE_NAME,
+    volumes: workspaceVolumes(featureVolumes(repoName, prdNumber)),
+  })
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -55,7 +79,7 @@ interface Ctx {
 async function main(): Promise<void> {
   const arg = process.argv[2]
   if (!arg || Number.isNaN(Number(arg))) {
-    console.error('Usage: pnpm sandcastle:run <PRD-NUMBER>')
+    console.error('Usage: pnpm sandcastle <PRD-NUMBER>')
     process.exit(1)
   }
   const prdNumber = Number(arg)
@@ -84,7 +108,26 @@ async function main(): Promise<void> {
 
   mkdirSync('.sandcastle/logs', { recursive: true })
 
+  // Recovery: reset "In Progress" sub-issues — those crashed mid-implementation.
+  // "In Review" is intentionally NOT reset: branch is already pushed, only merge
+  // remains. The iteration loop picks them up via the resume-merge path below.
+  const startupSubs = getSubIssues(owner, name, prdNumber, project.projectId)
+  const stale = startupSubs.filter(
+    (i) => i.state === 'OPEN' && i.labels.includes('sandcastle') && i.status === 'In Progress',
+  )
+  if (stale.length > 0) {
+    console.log(`♻️  Resetting ${stale.length} stale In Progress sub-issue(s) to Todo:`)
+    for (const i of stale) {
+      console.log(`   #${i.number}: ${i.title}`)
+      setIssueStatus(project, i.id, project.todoOptionId)
+    }
+  }
+
   const ctx: Ctx = { prd, featureBranch, project, owner, name }
+
+  // Issues we've already routed through mergeAll in this orchestrator run.
+  // Prevents infinite loops when a merge fails and the issue stays In Review.
+  const mergeAttempted = new Set<number>()
 
   for (let iter = 1; iter <= MAX_ITERATIONS; iter++) {
     console.log(`\n=== Iteration ${iter}/${MAX_ITERATIONS} ===\n`)
@@ -95,6 +138,53 @@ async function main(): Promise<void> {
     if (openSandcastle.length === 0) {
       console.log('✅ All sandcastle sub-issues closed.')
       break
+    }
+
+    // Resume "In Review" issues from a prior orchestrator run.
+    // Heuristic — pushBranch() runs only after review completes:
+    //   remote branch exists  → review done       → straight to merge
+    //   only local branch     → review incomplete → re-run review, then merge
+    //   no branch at all      → anomaly           → reset to Todo
+    const inReview = openSandcastle.filter((i) => i.status === 'In Review')
+    const resumeMerges: Array<{ issue: Issue; branch: string }> = []
+    for (const issue of inReview) {
+      if (mergeAttempted.has(issue.number)) continue
+      const branch = `sandcastle/issue-${issue.number}-${slugify(issue.title)}`
+
+      if (!branchExists(branch)) {
+        console.warn(
+          `#${issue.number} is In Review but no local branch '${branch}' exists; resetting to Todo.`,
+        )
+        setIssueStatus(ctx.project, issue.id, ctx.project.todoOptionId)
+        continue
+      }
+
+      if (remoteBranchExists(branch)) {
+        console.log(`[#${issue.number}] resume → review already pushed, going straight to merge.`)
+        resumeMerges.push({ issue, branch })
+      } else {
+        console.log(
+          `[#${issue.number}] resume → review incomplete (no remote branch), re-running review.`,
+        )
+        try {
+          const entry = await runReviewOnly(issue, branch, ctx)
+          resumeMerges.push(entry)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error(`[#${issue.number}] resume review failed: ${msg}`)
+          console.error(
+            `       → marking attempted for this run; will not retry until next invocation`,
+          )
+          mergeAttempted.add(issue.number)
+        }
+      }
+    }
+    if (resumeMerges.length > 0) {
+      console.log(`🔁 Merging ${resumeMerges.length} resumed sub-issue(s):`)
+      for (const { issue } of resumeMerges) console.log(`   #${issue.number}: ${issue.title}`)
+      for (const { issue } of resumeMerges) mergeAttempted.add(issue.number)
+      await mergeAll(resumeMerges, ctx)
+      continue
     }
 
     const ready = getReadyIssues(subs)
@@ -113,7 +203,7 @@ async function main(): Promise<void> {
       if (blockers.length > 0) {
         console.log('⏸️  Waiting on blocking issues (HITL or non-sandcastle):')
         for (const n of blockers) console.log(`   #${n}`)
-        console.log('\nRe-run `pnpm sandcastle:run ' + prdNumber + '` after blockers close.')
+        console.log('\nRe-run `pnpm sandcastle ' + prdNumber + '` after blockers close.')
         process.exit(0)
       }
 
@@ -139,8 +229,12 @@ async function main(): Promise<void> {
         successful.push(r.value)
       } else if (r.status === 'rejected') {
         console.error(`   ✗ #${issue.number} run failed: ${r.reason}`)
+        console.error(`       → resetting status to Todo so it's retried next iteration`)
+        setIssueStatus(ctx.project, issue.id, ctx.project.todoOptionId)
       } else {
         console.warn(`   - #${issue.number} produced no commits, skipping merge.`)
+        console.warn(`       → resetting status to Todo`)
+        setIssueStatus(ctx.project, issue.id, ctx.project.todoOptionId)
       }
     }
 
@@ -149,7 +243,20 @@ async function main(): Promise<void> {
       continue
     }
 
+    for (const { issue } of successful) mergeAttempted.add(issue.number)
     await mergeAll(successful, ctx)
+  }
+
+  // Final PR only when every sandcastle sub-issue is closed (loop exited via break).
+  // Hitting MAX_ITERATIONS or any other fall-through means partial work — skip.
+  const finalSubs = getSubIssues(owner, name, prdNumber, project.projectId)
+  const stillOpen = finalSubs.filter((i) => i.state === 'OPEN' && i.labels.includes('sandcastle'))
+  if (stillOpen.length > 0) {
+    console.log(
+      `\n⚠️  ${stillOpen.length} sub-issue(s) still open after ${MAX_ITERATIONS} iterations — skipping final PR:`,
+    )
+    for (const i of stillOpen) console.log(`   #${i.number} [${i.status}] ${i.title}`)
+    process.exit(1)
   }
 
   await createFinalPrIfReady(ctx)
@@ -163,9 +270,8 @@ async function runIssue(issue: Issue, ctx: Ctx): Promise<{ issue: Issue; branch:
 
   await using sandbox = await sandcastle.createSandbox({
     branch,
-    sandbox: sandboxProvider(),
+    sandbox: sandboxForIssue(ctx.name, issue.number),
     throwOnDuplicateWorktree: false,
-    copyToWorktree: ['node_modules'],
     hooks: {
       sandbox: {
         onSandboxReady: [{ command: 'pnpm install --prefer-offline' }],
@@ -217,6 +323,47 @@ async function runIssue(issue: Issue, ctx: Ctx): Promise<{ issue: Issue; branch:
   return { issue, branch }
 }
 
+/**
+ * Resume path: implement is already done (commits exist on `branch`) but
+ * review didn't push. Re-runs only the review agent, then pushes.
+ */
+async function runReviewOnly(
+  issue: Issue,
+  branch: string,
+  ctx: Ctx,
+): Promise<{ issue: Issue; branch: string }> {
+  console.log(`[#${issue.number}] RESUME REVIEW → ${branch}`)
+
+  await using sandbox = await sandcastle.createSandbox({
+    branch,
+    sandbox: sandboxForIssue(ctx.name, issue.number),
+    throwOnDuplicateWorktree: false,
+    hooks: {
+      sandbox: {
+        onSandboxReady: [{ command: 'pnpm install --prefer-offline' }],
+      },
+    },
+  })
+
+  await sandbox.run({
+    name: `review-${issue.number}`,
+    agent: sandcastle.claudeCode('claude-sonnet-4-6'),
+    promptFile: './.sandcastle/prompts/review.md',
+    promptArgs: {
+      ISSUE_NUMBER: String(issue.number),
+      ISSUE_TITLE: issue.title,
+      BRANCH: branch,
+      FEATURE_BRANCH: ctx.featureBranch,
+    },
+    completionSignal: '<promise>COMPLETE</promise>',
+    maxIterations: 3,
+    logging: { type: 'file', path: `.sandcastle/logs/review-${issue.number}.log` },
+  })
+
+  pushBranch(branch)
+  return { issue, branch }
+}
+
 async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: Ctx): Promise<void> {
   switchBranch(ctx.featureBranch)
 
@@ -247,9 +394,8 @@ async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: C
       try {
         await using mergerSbx = await sandcastle.createSandbox({
           branch: ctx.featureBranch,
-          sandbox: sandboxProvider(),
+          sandbox: sandboxForMerge(ctx.name, ctx.prd.number),
           throwOnDuplicateWorktree: false,
-          copyToWorktree: ['node_modules'],
           hooks: {
             sandbox: {
               onSandboxReady: [{ command: 'pnpm install --prefer-offline' }],
@@ -266,7 +412,7 @@ async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: C
             BRANCH: branch,
             FEATURE_BRANCH: ctx.featureBranch,
           },
-          completionSignal: ['<promise>COMPLETE</promise>', '<promise>MERGE_FAILED'],
+          completionSignal: ['<promise>COMPLETE</promise>', '<promise>MERGE_FAILED</promise>'],
           maxIterations: 5,
           logging: { type: 'file', path: `.sandcastle/logs/merge-${issue.number}.log` },
         })
@@ -295,6 +441,12 @@ async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: C
 
     closeIssue(issue.number, 'Implemented and merged via Sandcastle.')
     setIssueStatus(ctx.project, issue.id, ctx.project.doneOptionId)
+
+    // Issue is fully done — drop its persistent caches so we don't leak
+    // named docker volumes per closed issue.
+    const v = issueVolumes(ctx.name, issue.number)
+    await removeVolumes([v.nodeModules, v.pnpmStore])
+
     console.log(`[#${issue.number}] ✅ DONE`)
   }
 
@@ -320,6 +472,10 @@ async function createFinalPrIfReady(ctx: Ctx): Promise<void> {
 
   const url = createPr('main', ctx.featureBranch, title, body)
   console.log(`\n✅ Final PR opened: ${url}`)
+
+  // PRD is shipped — drop the merge-agent's feature-scoped caches.
+  const v = featureVolumes(ctx.name, ctx.prd.number)
+  await removeVolumes([v.nodeModules, v.pnpmStore])
 }
 
 function buildPrBody(prd: Issue, whatToBuild: string, closedSubs: Issue[]): string {

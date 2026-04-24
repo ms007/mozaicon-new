@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@10.31.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -15,7 +16,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "check": "tsc -b --noEmit && eslint . && prettier --check . && vitest run",
-    "sandcastle:run": "tsx .sandcastle/main.ts"
+    "sandcastle": "npx tsx .sandcastle/main.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
