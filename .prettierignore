@@ -1,6 +1,8 @@
 pnpm-lock.yaml
 dist
 node_modules
+storybook-static
+.pnpm-store
 playwright-report
 test-results
 # shadcn-generated primitives — regenerated verbatim, formatting follows upstream
