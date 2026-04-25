@@ -1,10 +1,10 @@
 import { atom } from 'jotai'
 
 export type Viewport = {
-  x: number
-  y: number
-  zoom: number
-  docSize: { w: number; h: number }
+  readonly x: number
+  readonly y: number
+  readonly zoom: number
+  readonly docSize: { readonly w: number; readonly h: number }
 }
 
 const DEFAULT_VIEWPORT: Viewport = {
@@ -14,4 +14,7 @@ const DEFAULT_VIEWPORT: Viewport = {
   docSize: { w: 24, h: 24 },
 }
 
-export const viewportAtom = atom<Viewport>({ ...DEFAULT_VIEWPORT })
+export const viewportAtom = atom<Viewport>({
+  ...DEFAULT_VIEWPORT,
+  docSize: { ...DEFAULT_VIEWPORT.docSize },
+})

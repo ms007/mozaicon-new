@@ -34,6 +34,12 @@ describe('StatusBarView', () => {
     expect(screen.getByTestId('coordinates')).toHaveTextContent('X: 4 Y: 9')
   })
 
+  it('renders negative coordinates correctly', () => {
+    render(<StatusBarView x={-12} y={-8} zoom={1} docWidth={24} docHeight={24} />)
+
+    expect(screen.getByTestId('coordinates')).toHaveTextContent('X: -12 Y: -8')
+  })
+
   it('has an accessible status role', () => {
     render(<StatusBarView x={0} y={0} zoom={1} docWidth={24} docHeight={24} />)
 
