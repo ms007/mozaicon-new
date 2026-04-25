@@ -18,7 +18,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "check": "tsc -b --noEmit && eslint . && prettier --check . && storybook build -o storybook-static --quiet && vitest run",
-    "sandcastle:run": "tsx .sandcastle/main.ts"
+    "sandcastle": "tsx .sandcastle/main.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
