@@ -22,6 +22,7 @@ describe('Icon', () => {
     expect(el.getAttribute('stroke')).toBe('currentColor')
     expect(el.getAttribute('stroke-linecap')).toBe('round')
     expect(el.getAttribute('stroke-linejoin')).toBe('round')
+    expect(el.getAttribute('stroke-width')).toBe('1.5')
   })
 
   it('forwards className', () => {
@@ -40,6 +41,17 @@ describe('Icon', () => {
       </Icon>,
     )
     expect(svg().getAttribute('stroke-width')).toBe('1.3')
+  })
+
+  it('forwards additional SVG attributes', () => {
+    render(
+      <Icon aria-label="icon" data-testid="my-icon">
+        <path d="M1 1L13 13" />
+      </Icon>,
+    )
+    const el = svg()
+    expect(el.getAttribute('aria-label')).toBe('icon')
+    expect(el.getAttribute('data-testid')).toBe('my-icon')
   })
 
   it('renders children unchanged', () => {
