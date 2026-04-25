@@ -1,0 +1,68 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { TypeSpecimen } from './_helpers/TypeSpecimen'
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+The type scale is density-optimised for an editor UI.
+Font family is **Inter Tight** (variable, roman + italic) with system fallbacks.
+All sizes are defined as `@theme inline` custom properties in `src/index.css`.
+
+## Type Scale
+
+<TypeSpecimen
+  sizeVar="--text-2xl"
+  lineHeightVar="--text-2xl--line-height"
+  label="text-2xl · Display / page title"
+/>
+<TypeSpecimen
+  sizeVar="--text-xl"
+  lineHeightVar="--text-xl--line-height"
+  label="text-xl · Section / h2"
+/>
+<TypeSpecimen
+  sizeVar="--text-lg"
+  lineHeightVar="--text-lg--line-height"
+  label="text-lg · Subsection titles"
+/>
+<TypeSpecimen
+  sizeVar="--text-base"
+  lineHeightVar="--text-base--line-height"
+  label="text-base · Body"
+/>
+<TypeSpecimen
+  sizeVar="--text-sm"
+  lineHeightVar="--text-sm--line-height"
+  label="text-sm · Controls / layer rows"
+/>
+<TypeSpecimen
+  sizeVar="--text-xs"
+  lineHeightVar="--text-xs--line-height"
+  label="text-xs · Labels / status readouts"
+/>
+
+## Weights
+
+Inter Tight is a variable font supporting weights 100–900.
+The editor uses regular (400) for body and medium (500) for emphasis.
+
+<TypeSpecimen
+  sizeVar="--text-base"
+  lineHeightVar="--text-base--line-height"
+  label="Regular (400)"
+  weight={400}
+/>
+<TypeSpecimen
+  sizeVar="--text-base"
+  lineHeightVar="--text-base--line-height"
+  label="Medium (500)"
+  weight={500}
+/>
+<TypeSpecimen
+  sizeVar="--text-base"
+  lineHeightVar="--text-base--line-height"
+  label="Semibold (600)"
+  weight={600}
+/>

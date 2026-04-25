@@ -1,0 +1,35 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { TokenTable } from './_helpers/TokenTable'
+
+<Meta title="Foundations/Elevation" />
+
+# Elevation
+
+Mozaicon uses surface color — not shadows — to communicate depth.
+The five-step surface scale creates a clear layering hierarchy without box-shadow or z-index tricks.
+
+## Surface hierarchy
+
+From lowest (base canvas) to highest (hover/active states):
+
+<TokenTable
+  tokens={[
+    { variable: '--background', label: 'background · base canvas' },
+    { variable: '--card', label: 'card · raised surface' },
+    { variable: '--secondary', label: 'secondary · elevated chrome' },
+    { variable: '--accent', label: 'accent · hover tint' },
+    { variable: '--track', label: 'track · active / pressed' },
+  ]}
+/>
+
+## Borders for separation
+
+Where adjacent surfaces share the same color, borders provide the separating edge.
+
+<TokenTable
+  tokens={[
+    { variable: '--border', label: 'border · default' },
+    { variable: '--border-hover', label: 'border-hover · interactive' },
+  ]}
+/>

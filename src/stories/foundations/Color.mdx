@@ -1,0 +1,71 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { TokenTable } from './_helpers/TokenTable'
+
+<Meta title="Foundations/Color" />
+
+# Color
+
+The palette is built on OKLCH and stored as CSS custom properties in `src/index.css`.
+Light theme lives on `:root`; dark overrides apply under the `.dark` class.
+Toggle themes with the toolbar above to see both palettes live.
+
+## Surfaces
+
+Five-step surface scale collapsed onto shadcn role names.
+Each step is one shade lighter/darker than the last, creating a subtle depth hierarchy without shadows.
+
+<TokenTable
+  tokens={[
+    { variable: '--background', label: 'background' },
+    { variable: '--foreground', label: 'foreground' },
+    { variable: '--card', label: 'card' },
+    { variable: '--card-foreground', label: 'card-foreground' },
+    { variable: '--secondary', label: 'secondary' },
+    { variable: '--secondary-foreground', label: 'secondary-foreground' },
+    { variable: '--muted', label: 'muted' },
+    { variable: '--muted-foreground', label: 'muted-foreground' },
+    { variable: '--accent', label: 'accent (hover tint)' },
+    { variable: '--accent-foreground', label: 'accent-foreground' },
+    { variable: '--input', label: 'input' },
+  ]}
+/>
+
+## Brand (Indigo)
+
+A single accent color communicates active tool, selection, focus ring, and slider thumb.
+Indigo 500 is the anchor; hover/muted/subtle variants shift lightness for context.
+
+<TokenTable
+  tokens={[
+    { variable: '--primary', label: 'primary' },
+    { variable: '--primary-foreground', label: 'primary-foreground' },
+    { variable: '--primary-hover', label: 'primary-hover' },
+    { variable: '--primary-muted', label: 'primary-muted' },
+    { variable: '--primary-subtle', label: 'primary-subtle' },
+  ]}
+/>
+
+## Status
+
+Reserved colors — success for confirmations, destructive for deletions and errors.
+These are never used for decoration.
+
+<TokenTable
+  tokens={[
+    { variable: '--success', label: 'success' },
+    { variable: '--success-foreground', label: 'success-foreground' },
+    { variable: '--destructive', label: 'destructive' },
+  ]}
+/>
+
+## Borders & Rings
+
+<TokenTable
+  tokens={[
+    { variable: '--border', label: 'border' },
+    { variable: '--border-hover', label: 'border-hover' },
+    { variable: '--ring', label: 'ring (focus)' },
+    { variable: '--track', label: 'track' },
+  ]}
+/>

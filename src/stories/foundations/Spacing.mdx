@@ -1,0 +1,24 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { SpacingRow } from './_helpers/SpacingRow'
+
+<Meta title="Foundations/Spacing" />
+
+# Spacing
+
+Spacing uses Tailwind's 4 px base grid (`--spacing`).
+The DS restricts the scale to a deliberate subset — `p-5` and `p-7` are intentionally skipped to maintain visual rhythm.
+
+## Scale
+
+<SpacingRow scale={1} label="p-1 · 4 px" />
+<SpacingRow scale={2} label="p-2 · 8 px" />
+<SpacingRow scale={3} label="p-3 · 12 px" />
+<SpacingRow scale={4} label="p-4 · 16 px" />
+<SpacingRow scale={6} label="p-6 · 24 px" />
+<SpacingRow scale={8} label="p-8 · 32 px" />
+
+## Intentional gaps
+
+`p-5` (20 px) and `p-7` (28 px) are avoided.
+Skipping these steps enforces a tighter rhythm in the dense editor chrome and reduces decision fatigue — there is always exactly one "right" size to reach for.

@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { TokenSwatch } from './_helpers/TokenSwatch'
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+The editor uses a single easing curve for all transitions.
+The curve is defined as `--ease-out` in `src/index.css` and mapped to Tailwind's `ease-out` utility.
+
+## Easing curve
+
+<TokenSwatch variable="--ease-out" label="ease-out" />
+
+`cubic-bezier(0.23, 1, 0.32, 1)` — a snappy ease-out with a fast start and gentle settle.
+Every component inherits this curve through Tailwind's `ease-out` utility.
+
+## Reduced motion
+
+When `prefers-reduced-motion: reduce` is active, all animation and transition durations collapse to near-zero at the token layer.
+Individual components don't need to re-author accessibility handling — it's built into the base CSS.
