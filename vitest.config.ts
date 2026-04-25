@@ -12,14 +12,21 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 function hasBrowserDeps(): boolean {
   try {
-    const cache = execFileSync('ldconfig', ['-p'], {
-      timeout: 5000,
-      stdio: 'pipe',
-    }).toString()
-    return cache.includes('libnspr4') && cache.includes('libnss3')
+    const out = execFileSync('ldconfig', ['-p'], { timeout: 5000, stdio: 'pipe' }).toString()
+    return out.includes('libnspr4') && out.includes('libnss3')
   } catch {
+    // ldconfig unavailable (non-Linux or not in PATH)
     return false
   }
+}
+
+const browserDepsAvailable = hasBrowserDeps()
+if (!browserDepsAvailable && !process.env._VITEST_SB_WARNED) {
+  process.env._VITEST_SB_WARNED = '1'
+  process.stderr.write(
+    '[vitest] Chromium system libraries (libnspr4, libnss3) not detected — ' +
+      'storybook project skipped. Story tests will not run in this pass.\n',
+  )
 }
 
 const storybookProject = {
@@ -56,7 +63,7 @@ export default mergeConfig(
             exclude: ['e2e/**', 'node_modules/**'],
           },
         },
-        ...(hasBrowserDeps() ? [storybookProject] : []),
+        ...(browserDepsAvailable ? [storybookProject] : []),
       ],
     },
   }),
