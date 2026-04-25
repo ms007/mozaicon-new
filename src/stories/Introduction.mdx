@@ -1,0 +1,79 @@
+import { Meta } from '@storybook/blocks'
+
+<Meta title="Introduction" />
+
+# Mozaicon Design System
+
+Mozaicon is a browser-based web app for designing, editing, and exporting SVG
+icons. This Storybook catalog is the interactive reference for the components,
+foundations, and icons that make up the editor UI.
+
+## Design Principles
+
+### Quiet, functional editor
+
+The interface recedes so the icon takes center stage. Controls are compact,
+muted, and only draw attention when they carry actionable state — an active
+tool highlight, a destructive action label, a validation error. Decorative
+flourishes, gradients, and drop shadows are absent from chrome; the only
+rich visuals belong to the icon being edited.
+
+### Pixel-perfect, keyboard-first
+
+Every interaction is reachable from the keyboard. Toolbar tools, selection,
+nudge, zoom, undo — all have single-key or modifier-key bindings documented
+in the shortcut registry. Mouse and pointer interactions exist as peers, not
+prerequisites. Measurements snap to integer coordinates by default so
+exported SVGs produce crisp edges at their target size.
+
+## Architecture at a Glance
+
+The editor follows a unidirectional data flow:
+
+```
+User interaction → Jotai atoms → React re-render → SVG DOM → Export pipeline
+```
+
+All mutations go through **commands** (write-only Jotai atoms) so that every
+change is undoable. State is split into small, focused atoms; derived atoms
+handle computed values. Components read from atoms directly — no prop
+drilling past two levels.
+
+## Deep-Dive Documentation
+
+These Markdown docs live alongside the codebase and cover topics in depth:
+
+- [**Architecture**](https://github.com/nicepkg/mozaicon/blob/main/docs/architecture.md) —
+  State management, command pattern, rendering pipeline. Start here before
+  touching `src/store/` or `src/features/canvas/`.
+
+- [**Design Tokens**](https://github.com/nicepkg/mozaicon/blob/main/docs/design-tokens.md) —
+  OKLCH color system, typography scale, spacing, radii, elevation, and motion
+  tokens. All values flow from `src/index.css` CSS custom properties.
+
+- [**UI Primitives**](https://github.com/nicepkg/mozaicon/blob/main/docs/ui-primitives.md) —
+  The three-layer component architecture: shadcn vendor → primitives wrapper →
+  application code. Explains the ESLint import boundary and the three wrap
+  patterns.
+
+## Catalog Components
+
+The Storybook sidebar organizes entries into:
+
+- **Primitives** — Buttons, inputs, sliders, and other low-level building
+  blocks imported from the `@/components/primitives` seam.
+- **Components** — Higher-level, feature-specific UI assembled from primitives.
+- **Foundations** — Live-rendered design tokens (colors, typography, spacing)
+  that stay in sync with `src/index.css` by construction.
+- **Icons** — The full icon set with the `<Icon>` wrapper enforcing DS
+  conventions (14 &times; 14 viewBox, `currentColor`, round caps/joins).
+
+The Tool palette, Layer item, and Status bar catalog entries showcase shipping
+presentational components whose app-shell wiring is tracked in follow-up
+tickets.
+
+## What's Not Here
+
+Voice and content guidelines live in `docs/voice.md` and are intentionally
+kept out of Storybook — they are text-only reference material, not UI
+components.
