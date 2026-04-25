@@ -14,6 +14,7 @@ export default defineConfig([
     'playwright-report',
     'test-results',
     'coverage',
+    'storybook-static',
     '.sandcastle',
   ]),
   {
@@ -33,7 +34,7 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        project: ['./tsconfig.app.json', './tsconfig.node.json'],
+        project: ['./tsconfig.app.json', './tsconfig.node.json', './.storybook/tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -83,10 +84,16 @@ export default defineConfig([
     },
   },
   {
-    files: ['**/*.test.{ts,tsx}', 'e2e/**'],
+    files: ['**/*.test.{ts,tsx}', '**/*.stories.{ts,tsx}', 'e2e/**'],
     rules: {
       'max-lines': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    files: ['.storybook/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 ])

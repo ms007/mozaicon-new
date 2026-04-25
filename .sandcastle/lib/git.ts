@@ -119,6 +119,19 @@ export function runPnpmCheck(): { ok: boolean; output: string } {
   return { ok: r.status === 0, output: (r.stdout ?? '') + (r.stderr ?? '') }
 }
 
+/**
+ * Sync host `node_modules` with the current branch's lockfile. Required after
+ * merging a sub-issue that added or changed dependencies — otherwise
+ * `runPnpmCheck` runs against a stale install and may pass or fail spuriously.
+ */
+export function runPnpmInstall(): { ok: boolean; output: string } {
+  const r = spawnSync('pnpm', ['install', '--prefer-offline'], {
+    encoding: 'utf-8',
+    maxBuffer: 50_000_000,
+  })
+  return { ok: r.status === 0, output: (r.stdout ?? '') + (r.stderr ?? '') }
+}
+
 /** List branches that contain commits not reachable from the target branch. */
 export function branchHasCommitsAhead(branch: string, target: string): boolean {
   const r = spawnSync('git', ['rev-list', '--count', `${target}..${branch}`], {
