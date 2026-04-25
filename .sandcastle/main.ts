@@ -31,6 +31,7 @@ import {
   attemptMerge,
   abortMerge,
   runPnpmCheck,
+  runPnpmInstall,
   slugify,
   branchHasCommitsAhead,
   branchExists,
@@ -377,6 +378,14 @@ async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: C
     const attempt = attemptMerge(branch, mergeMsg)
 
     if (attempt.ok) {
+      const install = runPnpmInstall()
+      if (!install.ok) {
+        console.error(
+          `[#${issue.number}] merged OK but pnpm install failed. Leaving merge commit for manual review.`,
+        )
+        console.error(install.output.slice(-2000))
+        continue
+      }
       const check = runPnpmCheck()
       if (!check.ok) {
         console.error(
@@ -426,6 +435,12 @@ async function mergeAll(entries: Array<{ issue: Issue; branch: string }>, ctx: C
         switchBranch(ctx.featureBranch)
       }
 
+      const postInstall = runPnpmInstall()
+      if (!postInstall.ok) {
+        console.error(`[#${issue.number}] post-merge pnpm install failed.`)
+        console.error(postInstall.output.slice(-2000))
+        continue
+      }
       const postCheck = runPnpmCheck()
       if (!postCheck.ok) {
         console.error(`[#${issue.number}] post-merge pnpm check failed.`)
