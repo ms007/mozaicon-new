@@ -1,0 +1,24 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { RadiusSwatch } from './_helpers/RadiusSwatch'
+import { TokenSwatch } from './_helpers/TokenSwatch'
+
+<Meta title="Foundations/Radii" />
+
+# Radii
+
+A single `--radius` knob (6 px) drives the entire radius scale.
+Changing it retints every rounded surface in the app.
+
+## Base knob
+
+<TokenSwatch variable="--radius" label="--radius (base knob)" />
+
+## Derived scale
+
+All derived values are computed from the base knob via `calc()`.
+
+<RadiusSwatch variable="--radius-sm" label="radius-sm — tight surfaces, checkboxes" />
+<RadiusSwatch variable="--radius-md" label="radius-md — buttons" />
+<RadiusSwatch variable="--radius-lg" label="radius-lg — cards, panels, inputs" />
+<RadiusSwatch variable="--radius-xl" label="radius-xl — reserved, use rarely" />
