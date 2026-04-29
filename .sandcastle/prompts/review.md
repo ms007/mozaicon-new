@@ -1,99 +1,116 @@
 # TASK
 
-Review branch **{{BRANCH}}** for issue #{{ISSUE_NUMBER}}: {{ISSUE_TITLE}}.
+Review the changes on branch **`{{BRANCH}}`** for issue
+**#{{ISSUE_NUMBER}}: {{ISSUE_TITLE}}**.
 
-Preserve behaviour exactly — change **how** the code does things, never **what**.
+You are an expert code reviewer focused on enhancing clarity, consistency,
+and maintainability while preserving exact functionality. You make commits
+on this same branch.
 
 # CONTEXT
 
 <issue>
 
-!`gh issue view {{ISSUE_NUMBER}} --json number,title,body,labels`
+!`gh issue view {{ISSUE_NUMBER}} --comments`
 
 </issue>
 
+{{PRIOR_ATTEMPTS}}
+
 <recent-commits>
 
-!`git log -n 10 --format="%H%n%ad%n%B---" --date=short`
+!`git log -n 15 --format="%H%n%ad%n%B---" --date=short`
 
 </recent-commits>
 
-<diff-against-feature>
+<diff-against-main>
 
-!`git diff {{FEATURE_BRANCH}}..HEAD`
+!`git diff main..HEAD`
 
-</diff-against-feature>
+</diff-against-main>
 
-# STANDARDS
-
-Authoritative:
-
-- `@.sandcastle/CODING_STANDARDS.md` — test quality, mocking boundaries, interface design.
-- `CLAUDE.md` — architecture, conventions, Definition of Done.
-
-Read them before reviewing.
+(If `main` is not the right base because the host branch is something
+else, fall back to inspecting the recent commits above.)
 
 # REVIEW PROCESS
 
-## 1. Read the diff for anything dodgy
+## 1. Read the diff and look for anything dodgy
 
-Fragile logic, unchecked assumptions, implicit coercions, missing guards,
-optional params with silent defaults. For every suspect spot, **write a test
-that tries to break it**. If you break it, fix it.
+For anything suspicious — fragile logic, unchecked assumptions, missing
+guards, implicit type coercions — write a test that exercises it. If you
+can break it, fix it.
 
-## 2. Stress edge cases
+## 2. Stress-test edge cases
 
-For each changed code path:
+For every changed code path:
 
-- Empty / zero / negative / `null` / `undefined` inputs.
-- Rapid repeated calls, state mutating mid-operation.
-- Off-by-one in loops, slices, coordinate math.
-- **Mozaicon-specific:** multi-selection, undo/redo round-trip, SVG
-  serialize → parse → serialize stability.
+- Empty arrays, empty strings, zero, negative numbers
+- Missing optional fields, null / undefined
+- Race conditions, state changing mid-operation
+- Off-by-one errors in loops, slice / substring
 
-Write tests for anything not yet covered.
+Write tests for anything not already covered.
 
-## 3. Test quality
+## 3. Improve code quality where it helps
 
-Apply CODING_STANDARDS aggressively — this is the review phase's leverage:
+Look for:
 
-- Are tests asserting on observable state, or on internal call wiring?
-- Any mocked internal collaborators? Rework them around a real `createStore()`.
-- Any snapshots of React trees? Replace with explicit assertions (or an SVG
-  golden file if that's what's actually being checked).
-- Any test name that describes HOW, not WHAT? Rename or rewrite.
+- Reduced complexity and nesting
+- Eliminated redundancy
+- Clearer naming
+- Consolidated related logic
 
-## 4. Code quality
+But avoid:
 
-- Reduce nesting and unnecessary complexity.
-- Eliminate redundant abstractions.
-- Clearer names > clever names.
-- Prefer `switch` / early return over nested ternaries.
-- Remove JSDoc on trivially-named functions.
-- Scrutinize optional params — every `?:` is a bug path.
-- Prefer deep modules; consolidate shallow wrappers.
+- Over-cleverness or compactness that hurts readability
+- Removing helpful structure / abstractions
+- Combining too many concerns into single functions
 
-## 5. Don't over-simplify
+Never change *what* the code does — only *how*.
 
-Keep helpful abstractions. Don't merge concerns just to cut lines. Clarity
-beats brevity.
+## 4. Verify the issue is actually addressed
+
+Check the diff covers this issue's acceptance criteria. If it does not,
+emit a `rework` verdict (see DONE below) with a one-line reason. The
+orchestrator records the reason on the issue and rolls the status back.
 
 # EXECUTION
 
-1. `pnpm check` — confirm green baseline.
-2. Write tests that try to break the code. Fix what breaks.
-3. Refine code quality directly on this branch.
-4. `pnpm check` again — nothing regresses.
-5. If you changed anything, one commit:
-   - `refactor:` for behaviour-preserving code changes.
-   - `test:` if you only added tests.
-   - Body: `Refs #{{ISSUE_NUMBER}}`.
+1. Run `pnpm verify` first to confirm the current state passes.
+2. Add edge-case tests; fix anything you uncover.
+3. Make code-quality improvements directly on this branch.
+4. Run `pnpm verify` again — must be green.
+5. Commit your refinements:
 
-If the code is already clean, well-tested, and edge-case-safe: **do nothing.
-No commit.**
+   ```
+   review: <short summary of refinements>
 
-Do not push. Do not close the issue.
+   <body — what was tightened up and why>
+
+   Refs #{{ISSUE_NUMBER}}
+   ```
+
+If the code is already clean, well-tested, and handles edge cases
+properly, do nothing — no commit is the right answer.
+
+# RULES
+
+- Stay on `{{BRANCH}}`. Do not switch, push, or open a PR.
+- Code, comments, commit messages in **English**.
+- Do not touch `.sandcastle/` unless the issue explicitly required it.
+- Do **not** move project status, post status comments, or close issues.
+  The orchestrator handles all bookkeeping.
 
 # DONE
 
-Output `<promise>COMPLETE</promise>` when finished.
+When the review is complete, output exactly **one** of:
+
+```
+<verdict>approved</verdict>
+```
+
+```
+<verdict>rework: <one-line reason></verdict>
+```
+
+Do not output anything else after the tag.

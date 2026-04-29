@@ -1,130 +1,229 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from "node:child_process"
+import { randomBytes } from "node:crypto"
 
-function git(args: string[], opts: { stdio?: 'inherit' | 'pipe' } = {}): string {
-  return execFileSync('git', args, {
-    encoding: 'utf-8',
-    stdio: opts.stdio === 'inherit' ? 'inherit' : ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 50_000_000,
-  }) as unknown as string
+export interface BaseRef {
+  readonly sha: string
+  readonly refName: string
 }
 
-function gitNoThrow(args: string[]): { ok: boolean; stdout: string; stderr: string; code: number } {
-  const r = spawnSync('git', args, { encoding: 'utf-8', maxBuffer: 50_000_000 })
-  return {
-    ok: r.status === 0,
-    stdout: r.stdout ?? '',
-    stderr: r.stderr ?? '',
-    code: r.status ?? -1,
-  }
-}
+/** Result of resolving a ref to a SHA. */
+export type ResolveRefResult =
+  | { readonly kind: "resolved"; readonly sha: string }
+  | { readonly kind: "missing" }
 
-export function requireCleanWorktree(): void {
-  const out = git(['status', '--porcelain'])
-  if (out.trim() !== '') {
-    throw new Error('Working tree is not clean. Commit or stash your changes first:\n' + out)
-  }
-}
+/** Result of a compare-and-set fast-forward. */
+export type CasFFResult =
+  | { readonly kind: "ok" }
+  | { readonly kind: "moved"; readonly actualSha: string }
+  | { readonly kind: "missing" }
 
-export function currentBranch(): string {
-  return git(['branch', '--show-current']).trim()
-}
-
-export function branchExists(branch: string): boolean {
-  const r = spawnSync('git', ['rev-parse', '--verify', `refs/heads/${branch}`])
-  return r.status === 0
-}
-
-export function remoteBranchExists(branch: string): boolean {
-  const r = spawnSync('git', ['rev-parse', '--verify', `refs/remotes/origin/${branch}`])
-  return r.status === 0
+export interface BranchCommit {
+  readonly sha: string
+  readonly subject: string
 }
 
 /**
- * Convert a title into an ASCII kebab-case slug, max 50 chars.
- * Mirrors the rule from start-issue SKILL.md.
+ * Snapshot of a single git branch relative to a frozen base SHA. Surfaced to
+ * the planner so it can spot stale work left behind by a crashed previous run
+ * (e.g. an issue parked at "In Review" with a branch ahead of base).
  */
-export function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 50)
-    .replace(/-+$/g, '')
+export interface BranchInfo {
+  readonly name: string
+  /** `true` when `refs/heads/<name>` resolves locally. */
+  readonly exists: boolean
+  /** Commits on the branch that are not in the base. `0` for non-existent or up-to-date branches. */
+  readonly aheadOfBase: number
+  /** Tip SHA of the branch, or `null` when the branch does not exist. */
+  readonly headSha: string | null
+  /** Up to `commitLimit` commits in `base..branch`, newest first. Empty when `aheadOfBase === 0`. */
+  readonly commits: readonly BranchCommit[]
+}
+
+const git = (...args: string[]): string => execFileSync("git", args, { encoding: "utf8" }).trim()
+
+const tryGit = (...args: string[]): string | null => {
+  try {
+    // Pipe stderr so an expected miss (e.g. a not-yet-created branch) does not
+    // leak `fatal: ...` noise into the orchestrator console.
+    return execFileSync("git", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim()
+  } catch {
+    return null
+  }
 }
 
 /**
- * Idempotent feature-branch resolution:
- * - If any branch matching `feat/prd-<N>-*` exists locally, switch to it and pull.
- * - Else create `feat/prd-<N>-<slug>` from a freshly pulled main and push.
- * Returns the final branch name.
+ * Snapshot of the host's HEAD at orchestrator start. Used by the implementer
+ * progress check so resumed runs can recognise commits left behind by an
+ * earlier (crashed) iteration as "already implemented".
  */
-export function ensureFeatureBranch(prdNumber: number, title: string): string {
-  const existing = git(['branch', '--list', `feat/prd-${prdNumber}-*`])
-    .split('\n')
-    .map((l) => l.replace(/^[\s*]+/, '').trim())
-    .filter(Boolean)
+export const captureBaseRef = (): BaseRef => ({
+  sha: git("rev-parse", "HEAD"),
+  refName: git("rev-parse", "--abbrev-ref", "HEAD"),
+})
 
-  if (existing.length > 0) {
-    const branch = existing[0]!
-    git(['switch', branch], { stdio: 'inherit' })
-    if (remoteBranchExists(branch)) {
-      const r = gitNoThrow(['pull', '--ff-only', 'origin', branch])
-      if (!r.ok) {
-        throw new Error(
-          `git pull --ff-only origin ${branch} failed. Resolve divergence manually.\n` + r.stderr,
-        )
-      }
+/** Conventional 7-char short SHA used in human-facing log lines. */
+export const shortSha = (sha: string): string => sha.slice(0, 7)
+
+export const formatBaseRef = (ref: BaseRef): string => `${ref.refName} (${shortSha(ref.sha)})`
+
+export const countCommitsAhead = (baseSha: string, branch: string): number => {
+  // A missing local branch (expected before the implementer first runs) makes
+  // rev-list fatal; treat that as zero commits ahead.
+  const out = tryGit("rev-list", "--count", `${baseSha}..refs/heads/${branch}`)
+  return out === null ? 0 : Number(out)
+}
+
+/** Conventional sandcastle branch name for a given issue. Single source of truth. */
+export const issueBranchName = (issueNumber: number): string => `sandcastle/issue-${issueNumber}`
+
+/**
+ * Inspect a local branch relative to a base SHA. Returns `exists: false` when
+ * the branch is not present locally. `commitLimit` caps how many commits show
+ * up in `commits`; the diff count itself (`aheadOfBase`) is unbounded.
+ */
+export const readBranchInfo = (baseSha: string, branch: string, commitLimit = 20): BranchInfo => {
+  const ref = `refs/heads/${branch}`
+  const headSha = tryGit("rev-parse", "--verify", ref)
+  if (!headSha) {
+    return {
+      name: branch,
+      exists: false,
+      aheadOfBase: 0,
+      headSha: null,
+      commits: [],
     }
-    return branch
   }
-
-  git(['fetch', 'origin', 'main'], { stdio: 'inherit' })
-  git(['switch', 'main'], { stdio: 'inherit' })
-  git(['pull', '--ff-only', 'origin', 'main'], { stdio: 'inherit' })
-
-  const branch = `feat/prd-${prdNumber}-${slugify(title)}`
-  git(['switch', '-c', branch], { stdio: 'inherit' })
-  git(['push', '-u', 'origin', branch], { stdio: 'inherit' })
-  return branch
+  const aheadOfBase = countCommitsAhead(baseSha, branch)
+  if (aheadOfBase === 0) {
+    return { name: branch, exists: true, aheadOfBase: 0, headSha, commits: [] }
+  }
+  const log = git("log", `-${commitLimit}`, "--format=%H%x09%s", `${baseSha}..${ref}`)
+  const commits = log
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const tab = line.indexOf("\t")
+      return tab < 0
+        ? { sha: line, subject: "" }
+        : { sha: line.slice(0, tab), subject: line.slice(tab + 1) }
+    })
+  return { name: branch, exists: true, aheadOfBase, headSha, commits }
 }
 
-export function switchBranch(branch: string): void {
-  git(['switch', branch], { stdio: 'inherit' })
-}
+/** Branch-name prefix for short-lived merger working branches. Single source of truth. */
+export const TMP_MERGE_PREFIX = "sandcastle/tmp-merge/"
 
-export function pushBranch(branch: string): void {
-  git(['push', '-u', 'origin', branch], { stdio: 'inherit' })
+/**
+ * Generate a collision-resistant temporary merger branch name.
+ * Format: `<TMP_MERGE_PREFIX><seed>-<ISO-timestamp>-<random-suffix>`
+ *
+ * Two calls in the same second never collide thanks to the 6-byte random suffix.
+ */
+export const tempMergerBranchName = (seed: number): string => {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-")
+  const suffix = randomBytes(6).toString("hex")
+  return `${TMP_MERGE_PREFIX}${seed}-${ts}-${suffix}`
 }
 
 /**
- * Attempt to merge `branch` into the current branch with --no-ff.
- * Returns whether the merge succeeded. On conflict, the working tree is left
- * in the conflicted state for the caller to escalate to the merge-agent.
+ * Resolve a branch name to its tip SHA.
+ * Returns `{ kind: "resolved", sha }` on success, `{ kind: "missing" }` when
+ * the branch does not exist.
  */
-export function attemptMerge(branch: string, message: string): { ok: boolean; conflict: boolean } {
-  const r = gitNoThrow(['merge', '--no-ff', '-m', message, branch])
-  if (r.ok) return { ok: true, conflict: false }
-  const conflict = /conflict/i.test(r.stdout) || /conflict/i.test(r.stderr)
-  return { ok: false, conflict }
+export const resolveRef = (refName: string): ResolveRefResult => {
+  const sha = tryGit("rev-parse", "--verify", `refs/heads/${refName}`)
+  if (sha === null) return { kind: "missing" }
+  return { kind: "resolved", sha }
 }
 
-export function abortMerge(): void {
-  gitNoThrow(['merge', '--abort'])
+/**
+ * Atomic compare-and-set fast-forward of a branch ref.
+ *
+ * Advances `branch` from `expectedSha` to `newSha` only when the current tip
+ * equals `expectedSha`. Uses `git update-ref` with the old-value check so the
+ * operation is atomic.
+ *
+ * Returns `{ kind: "ok" }` on success, `{ kind: "moved", actualSha }` when the
+ * branch has been updated by someone else, or `{ kind: "missing" }` when the
+ * branch does not exist.
+ */
+export const casFastForward = (
+  branch: string,
+  expectedSha: string,
+  newSha: string,
+): CasFFResult => {
+  const ref = `refs/heads/${branch}`
+  // Single subprocess on the happy path: update-ref's old-value guard already
+  // checks that current == expectedSha atomically. Only re-read the ref to
+  // distinguish missing vs. moved when the guard rejects.
+  if (tryGit("update-ref", ref, newSha, expectedSha) !== null) return { kind: "ok" }
+  const actual = tryGit("rev-parse", "--verify", ref)
+  if (actual === null) return { kind: "missing" }
+  return { kind: "moved", actualSha: actual }
 }
 
-export function runPnpmCheck(): { ok: boolean; output: string } {
-  const r = spawnSync('pnpm', ['check'], { encoding: 'utf-8', maxBuffer: 50_000_000 })
-  return { ok: r.status === 0, output: (r.stdout ?? '') + (r.stderr ?? '') }
+/**
+ * Delete a branch safely. By default refuses to delete an unmerged branch
+ * (like `git branch -d`). Pass `force: true` to force-delete (like `git branch -D`).
+ *
+ * Returns `true` when the branch was deleted, `false` when it did not exist.
+ * Throws when the branch is unmerged and `force` is false.
+ */
+export const safeDeleteBranch = (branch: string, opts: { force?: boolean } = {}): boolean => {
+  // Pre-check existence so the "missing branch" path doesn't depend on a
+  // locale-specific stderr string from `git branch -d`.
+  if (resolveRef(branch).kind === "missing") return false
+  const flag = opts.force ? "-D" : "-d"
+  git("branch", flag, branch)
+  return true
 }
 
-/** List branches that contain commits not reachable from the target branch. */
-export function branchHasCommitsAhead(branch: string, target: string): boolean {
-  const r = spawnSync('git', ['rev-list', '--count', `${target}..${branch}`], {
-    encoding: 'utf-8',
-  })
-  if (r.status !== 0) return false
-  const n = Number.parseInt((r.stdout ?? '0').trim(), 10)
-  return n > 0
+/**
+ * Throws when the working tree has tracked-file changes relative to `vsCommit`
+ * (defaults to HEAD). Untracked files are tolerated.
+ *
+ * Anchor against an explicit `vsCommit` for the post-success refresh re-check:
+ * by then the orchestrator has fast-forwarded `refs/heads/<branch>` via a
+ * low-level update-ref, so the index still reflects the starting commit while
+ * HEAD now resolves to the advanced tip — a HEAD-based check would read the
+ * entire ref-advance diff as "staged" and skip the refresh.
+ */
+export const ensureCleanWorktree = (vsCommit?: string): void => {
+  const tail = vsCommit ? [vsCommit] : []
+  const hasUnstaged = tryGit("diff", "--quiet", ...tail) === null
+  const hasStaged = tryGit("diff", "--cached", "--quiet", ...tail) === null
+
+  if (!hasUnstaged && !hasStaged) return
+
+  const kind = hasStaged && hasUnstaged ? "staged and unstaged" : hasStaged ? "staged" : "unstaged"
+  throw new Error(
+    `Dirty working tree: ${kind} tracked changes detected. The orchestrator advances refs at a low level and would leave the worktree in a confusing state. Stash, commit, or discard your changes, then re-run.`,
+  )
+}
+
+/**
+ * List worktree checkout paths that have `branch` checked out.
+ * Returns an array of absolute paths (usually 0 or 1 element).
+ */
+export const listWorktreesForBranch = (branch: string): string[] => {
+  const out = tryGit("worktree", "list", "--porcelain")
+  if (out === null) return []
+  const paths: string[] = []
+  let currentPath: string | null = null
+  for (const line of out.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      currentPath = line.slice("worktree ".length)
+    } else if (line.startsWith("branch refs/heads/")) {
+      const branchName = line.slice("branch refs/heads/".length)
+      if (branchName === branch && currentPath !== null) {
+        paths.push(currentPath)
+      }
+    } else if (line === "") {
+      currentPath = null
+    }
+  }
+  return paths
 }

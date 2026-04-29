@@ -15,7 +15,8 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "check": "tsc -b --noEmit && eslint . && prettier --check . && vitest run",
-    "sandcastle:run": "tsx .sandcastle/main.ts"
+    "sandcastle:run": "tsx .sandcastle/main.ts",
+    "sandcastle:image": "docker build -t sandcastle:latest .sandcastle"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -32,7 +33,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@ai-hero/sandcastle": "^0.5.1",
+    "@ai-hero/sandcastle": "^0.5.5",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.2.4",
