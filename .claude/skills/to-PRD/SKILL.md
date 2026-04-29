@@ -1,78 +1,96 @@
 ---
 name: to-PRD
-description: Turn the current conversation context into a PRD and submit it as a GitHub issue. Use when user wants to create a PRD from the current context.
+description: Turn the current conversation context into a PRD and submit it as a GitHub issue. Use when the user wants to capture the discussed work as a Product Requirements Document for later breakdown into implementation issues.
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a PRD. Do NOT interview the user — just synthesize what you already know.
+# Create PRD
+
+Synthesize the current conversation context and codebase understanding into
+a Product Requirements Document, then submit it as a GitHub issue. Do **not**
+interview the user — work from what is already in context.
+
+The PRD will be the parent of one or more implementation issues created
+later by `to-issues`. Parent/child links use GitHub's native sub-issue
+relationships, not body text.
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already.
+### 1. Explore the repo (if not already done)
 
-2. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
+Read enough of the codebase to ground the PRD in the current state.
 
-A deep module (as opposed to a shallow module) is one which encapsulates a lot of functionality in a simple, testable interface which rarely changes.
+### 2. Sketch the major modules
 
-Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
+Identify the modules you would need to build or modify. Actively look for
+opportunities to extract **deep modules** — modules that encapsulate a lot
+of functionality behind a simple, testable interface that rarely changes.
+Prefer deep over shallow.
 
-3. Submit the PRD as a GitHub issue using the template below for the body:
+Check with the user that:
 
-   ```bash
-   gh issue create --title "..." --body "..."
-   ```
+- The proposed modules match their expectations.
+- Which modules they want tests written for.
 
-   The PRD will be identified as a parent later via its native sub-issue relationships (no label needed).
+### 3. Submit the PRD as a GitHub issue
 
-<prd-template>
+Use the template below for the body:
 
+```bash
+gh issue create --title "PRD: <short feature name>" --body "$(cat <<'EOF'
 ## Problem Statement
-
-The problem that the user is facing, from the user's perspective.
+The problem the user is facing, from the user's perspective.
 
 ## Solution
-
 The solution to the problem, from the user's perspective.
 
 ## User Stories
-
-A LONG, numbered list of user stories. Each user story should be in the format of:
+A long, numbered list of user stories in the format:
 
 1. As an <actor>, I want a <feature>, so that <benefit>
 
-<user-story-example>
-1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
-</user-story-example>
+Example:
+1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better-informed decisions about my spending.
 
-This list of user stories should be extremely extensive and cover all aspects of the feature.
+Cover all aspects of the feature.
 
 ## Implementation Decisions
-
-A list of implementation decisions that were made. This can include:
-
-- The modules that will be built/modified
-- The interfaces of those modules that will be modified
+Decisions made during the discussion. Include any of:
+- Modules that will be built or modified
+- Interfaces of those modules
 - Technical clarifications from the developer
 - Architectural decisions
 - Schema changes
 - API contracts
 - Specific interactions
 
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
+Do NOT include specific file paths or code snippets — they age fast.
 
 ## Testing Decisions
-
-A list of testing decisions that were made. Include:
-
-- A description of what makes a good test (only test external behavior, not implementation details)
+Include:
+- A description of what makes a good test (test external behavior, not implementation details)
 - Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
+- Prior art for the tests (similar test types in the codebase)
 
 ## Out of Scope
-
-A description of the things that are out of scope for this PRD.
+What is explicitly not part of this PRD.
 
 ## Further Notes
+Anything else worth recording.
+EOF
+)"
+```
 
-Any further notes about the feature.
+The PRD will be identified as a parent later via native sub-issue
+relationships set by `to-issues` — no `parent` label needed.
 
-</prd-template>
+## Rules
+
+- Do **not** add the PRD to the Project v2 yet — that happens automatically
+  when `to-issues` creates child slices and links them. The PRD itself can
+  remain off-board (it is metadata, not actionable work).
+- Do **not** add the `sandcastle` or `hitl` label to the PRD. Those are
+  routing labels for implementation slices only; a PRD is never picked up
+  by the orchestrator.
+- Do **not** include code snippets, file paths, or line numbers — they will
+  drift.
+- After submission, return the issue URL and number to the user.
