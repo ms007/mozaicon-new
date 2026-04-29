@@ -3,6 +3,7 @@ dist
 node_modules
 playwright-report
 test-results
+storybook-static
 # shadcn-generated primitives — regenerated verbatim, formatting follows upstream
 src/components/ui
 

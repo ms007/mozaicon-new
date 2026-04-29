@@ -37,6 +37,9 @@ playwright/.cache/
 *.sln
 *.sw?
 
+# Storybook static build output
+storybook-static/
+
 # Sandcastle runtime artefacts
 .sandcastle/.env
 .sandcastle/logs/

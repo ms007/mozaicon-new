@@ -89,4 +89,15 @@ export default defineConfig([
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  {
+    // Story files export `meta` defaults and `StoryObj` consts alongside the
+    // component, which trips react-refresh's only-export-components rule.
+    // The `no-restricted-imports` ban on `@/components/ui/*` stays on — per
+    // parent #57 the catalog only ever covers primitives + semantic components,
+    // never shadcn vendor output.
+    files: ['**/*.stories.{ts,tsx}', '.storybook/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
