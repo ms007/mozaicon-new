@@ -16,9 +16,7 @@ import type { Preview } from '@storybook/react-vite'
 const preview: Preview = {
   parameters: {
     controls: { matchers: { color: /(background|color)$/i, date: /Date$/i } },
-    // Surface axe violations in the panel without failing the story render —
-    // the parent issue (#57) wires `addon-a11y` into the Vitest pass later.
-    a11y: { test: 'todo' },
+    a11y: { test: 'error' },
   },
   decorators: [
     withThemeByClassName({

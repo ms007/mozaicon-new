@@ -1,0 +1,73 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { TokenTable } from './_helpers/TokenTable'
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+Motion is short (80–200ms) and always on the same ease curve. Transforms only
+scale small (0.97 button press) or slide segmented pills. Long transitions do
+not exist — the app is a tool, not a narrative.
+
+## Easing
+
+The design system defines a single easing curve that rebinds Tailwind's
+`ease-out` utility globally. The resolved value below is read live from the
+CSS custom property.
+
+<TokenTable tokens={[{ label: 'Ease Out', variable: '--ease-out' }]} />
+
+## Duration Conventions
+
+Durations use Tailwind's built-in `duration-*` utilities. They are not custom
+tokens — the DS prescribes specific values per interaction type.
+
+| Interaction        | Utility        | Value | Applies to                              |
+| ------------------ | -------------- | ----- | --------------------------------------- |
+| Button / nav state | `duration-150` | 150ms | Hover, focus, pressed surface colors    |
+| Pill slide         | `duration-200` | 200ms | Segmented-control indicator, tab slides |
+| Slider thumb hover | `duration-100` | 100ms | Scale transform on hover                |
+| Press feedback     | instant        | —     | `active:scale-[0.97]`, no transition    |
+| Focus ring         | instant        | —     | 2px accent outline, no transition       |
+
+## Motion Demo
+
+Hover the box to see the DS ease curve in action (exaggerated to 600ms for
+visibility).
+
+<div
+  style={{
+    marginTop: '1rem',
+    padding: '1rem',
+    border: '1px dashed var(--border)',
+    borderRadius: 'var(--radius)',
+    position: 'relative',
+    overflow: 'hidden',
+    height: 60,
+  }}
+>
+  <div
+    className="bg-primary rounded-md"
+    style={{
+      width: 40,
+      height: 40,
+      transition: 'transform 600ms var(--ease-out)',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = 'translateX(140px)'
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'translateX(0)'
+    }}
+  />
+</div>
+
+## Reduced Motion
+
+The global `@media (prefers-reduced-motion: reduce)` rule in `src/index.css`
+collapses `animation-duration`, `animation-iteration-count`,
+`transition-duration`, and `transition-delay` to near-zero for all elements.
+`transform` itself is left alone so Radix floating positioning, tooltips, and
+layout transforms keep working.
+
+No per-component authoring is needed — the base-layer rule covers everything.

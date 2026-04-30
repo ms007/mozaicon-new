@@ -15,6 +15,8 @@ export default defineConfig([
     'test-results',
     'coverage',
     '.sandcastle',
+    '.pnpm-store',
+    'storybook-static',
   ]),
   {
     files: ['**/*.{ts,tsx}'],

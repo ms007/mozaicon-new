@@ -1,0 +1,29 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+import { RadiusSwatch } from './_helpers/RadiusSwatch'
+
+<Meta title="Foundations/Radii" />
+
+# Radii
+
+The radius system uses a single `--radius` knob in `:root` that retints the
+whole app. All other radius tokens derive from it via `calc()`.
+
+| Token         | Formula                     |
+| ------------- | --------------------------- |
+| `--radius-sm` | `calc(var(--radius) - 4px)` |
+| `--radius-md` | `calc(var(--radius) - 2px)` |
+| `--radius-lg` | `var(--radius)`             |
+| `--radius-xl` | `calc(var(--radius) + 4px)` |
+
+## Swatches
+
+<div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', padding: '1.5rem 0' }}>
+  <RadiusSwatch token="--radius-sm" label="sm" />
+  <RadiusSwatch token="--radius-md" label="md" />
+  <RadiusSwatch token="--radius-lg" label="lg" />
+  <RadiusSwatch token="--radius-xl" label="xl" />
+</div>
+
+Toggle between **light** and **dark** themes via the toolbar to verify that the
+swatches render identically in both modes — radius tokens are theme-invariant.

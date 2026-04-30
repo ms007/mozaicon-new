@@ -28,7 +28,7 @@
  *
  * The shadcn role-based vocabulary wins at the code level; the DS language
  * is remapped onto it via the surface/role collapse documented in the
- * parent PRD. See docs/design-system.html for the canonical visual spec.
+ * parent PRD.
  *
  * Light theme lives in :root; `.dark` carries dark overrides. Runtime
  * default is light. OKLCH is the storage format; conversions from the DS's

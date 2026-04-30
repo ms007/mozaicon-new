@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { SpacingRow } from './_helpers/SpacingRow'
+
+<Meta title="Foundations/Spacing" />
+
+# Spacing
+
+The spacing scale is built on Tailwind CSS v4's `--spacing` token (`0.25rem` = 4px at
+default root font size). Every value is a multiple of this base unit, keeping layouts
+consistent and predictable.
+
+Use the Tailwind utility classes — `p-4`, `gap-2`, `m-8`, etc. — rather than
+hard-coding pixel values.
+
+## Scale
+
+<div className="flex flex-col gap-0.5">
+  <SpacingRow multiplier={0} name="0" />
+  <SpacingRow multiplier={0.5} name="0.5" />
+  <SpacingRow multiplier={1} name="1" />
+  <SpacingRow multiplier={1.5} name="1.5" />
+  <SpacingRow multiplier={2} name="2" />
+  <SpacingRow multiplier={2.5} name="2.5" />
+  <SpacingRow multiplier={3} name="3" />
+  <SpacingRow multiplier={3.5} name="3.5" />
+  <SpacingRow multiplier={4} name="4" />
+  <SpacingRow multiplier={5} name="5" />
+  <SpacingRow multiplier={6} name="6" />
+  <SpacingRow multiplier={7} name="7" />
+  <SpacingRow multiplier={8} name="8" />
+  <SpacingRow multiplier={9} name="9" />
+  <SpacingRow multiplier={10} name="10" />
+  <SpacingRow multiplier={11} name="11" />
+  <SpacingRow multiplier={12} name="12" />
+  <SpacingRow multiplier={14} name="14" />
+  <SpacingRow multiplier={16} name="16" />
+  <SpacingRow multiplier={20} name="20" />
+  <SpacingRow multiplier={24} name="24" />
+  <SpacingRow multiplier={28} name="28" />
+  <SpacingRow multiplier={32} name="32" />
+  <SpacingRow multiplier={36} name="36" />
+  <SpacingRow multiplier={40} name="40" />
+  <SpacingRow multiplier={44} name="44" />
+  <SpacingRow multiplier={48} name="48" />
+  <SpacingRow multiplier={56} name="56" />
+  <SpacingRow multiplier={64} name="64" />
+  <SpacingRow multiplier={72} name="72" />
+  <SpacingRow multiplier={80} name="80" />
+  <SpacingRow multiplier={96} name="96" />
+</div>
+
+## Special values
+
+| Utility | Value | Use case                  |
+| ------- | ----- | ------------------------- |
+| `px`    | 1px   | Borders, fine adjustments |
+| `0`     | 0     | Resetting margins/padding |
+
+## Usage guidelines
+
+- **4 / 8 / 12 / 16** — workhorse values for component internals (padding, gaps).
+- **20 – 32** — section-level spacing between groups of content.
+- **40+** — page-level breathing room; use sparingly.
+- Prefer even steps (2, 4, 8, 12, 16…) for visual consistency; half-steps (0.5, 1.5, 2.5, 3.5) are for fine-tuning.

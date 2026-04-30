@@ -1,7 +1,7 @@
-// Nested-square brand logo from the DS (see `docs/design-system.html`, section
-// "Brand mark"). Rendered as inline SVG so it scales crisp at any size and
-// inherits color from the surrounding text via `currentColor`. The outer frame
-// sits at 20% opacity; the inner canvas is solid.
+// Nested-square brand logo from the DS. Rendered as inline SVG so it scales
+// crisp at any size and inherits color from the surrounding text via
+// `currentColor`. The outer frame sits at 20% opacity; the inner canvas
+// is solid.
 
 import type { ComponentProps } from 'react'
 

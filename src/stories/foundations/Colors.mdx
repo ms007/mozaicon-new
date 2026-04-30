@@ -1,0 +1,104 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { TokenTable } from './_helpers/TokenTable'
+
+<Meta title="Foundations/Colors" />
+
+# Colors
+
+Design tokens for the Mozaicon color system. Values are resolved live from CSS
+custom properties and reflect the current theme — use the toolbar toggle to
+switch between light and dark.
+
+## Surfaces
+
+<TokenTable
+  tokens={[
+    { label: 'Background', variable: '--background' },
+    { label: 'Foreground', variable: '--foreground' },
+    { label: 'Card', variable: '--card' },
+    { label: 'Card Foreground', variable: '--card-foreground' },
+    { label: 'Popover', variable: '--popover' },
+    { label: 'Popover Foreground', variable: '--popover-foreground' },
+  ]}
+/>
+
+## Primary (Brand)
+
+<TokenTable
+  tokens={[
+    { label: 'Primary', variable: '--primary' },
+    { label: 'Primary Foreground', variable: '--primary-foreground' },
+    { label: 'Primary Hover', variable: '--primary-hover' },
+    { label: 'Primary Muted', variable: '--primary-muted' },
+    { label: 'Primary Subtle', variable: '--primary-subtle' },
+  ]}
+/>
+
+## Secondary & Muted
+
+<TokenTable
+  tokens={[
+    { label: 'Secondary', variable: '--secondary' },
+    { label: 'Secondary Foreground', variable: '--secondary-foreground' },
+    { label: 'Muted', variable: '--muted' },
+    { label: 'Muted Foreground', variable: '--muted-foreground' },
+  ]}
+/>
+
+## Accent
+
+<TokenTable
+  tokens={[
+    { label: 'Accent', variable: '--accent' },
+    { label: 'Accent Foreground', variable: '--accent-foreground' },
+  ]}
+/>
+
+## Status
+
+<TokenTable
+  tokens={[
+    { label: 'Success', variable: '--success' },
+    { label: 'Success Foreground', variable: '--success-foreground' },
+    { label: 'Destructive', variable: '--destructive' },
+  ]}
+/>
+
+## Borders & Controls
+
+<TokenTable
+  tokens={[
+    { label: 'Border', variable: '--border' },
+    { label: 'Border Hover', variable: '--border-hover' },
+    { label: 'Input', variable: '--input' },
+    { label: 'Ring', variable: '--ring' },
+    { label: 'Track', variable: '--track' },
+  ]}
+/>
+
+## Charts
+
+<TokenTable
+  tokens={[
+    { label: 'Chart 1', variable: '--chart-1' },
+    { label: 'Chart 2', variable: '--chart-2' },
+    { label: 'Chart 3', variable: '--chart-3' },
+    { label: 'Chart 4', variable: '--chart-4' },
+    { label: 'Chart 5', variable: '--chart-5' },
+  ]}
+/>
+
+## Sidebar
+
+<TokenTable
+  tokens={[
+    { label: 'Sidebar', variable: '--sidebar' },
+    { label: 'Sidebar Foreground', variable: '--sidebar-foreground' },
+    { label: 'Sidebar Primary', variable: '--sidebar-primary' },
+    { label: 'Sidebar Primary Foreground', variable: '--sidebar-primary-foreground' },
+    { label: 'Sidebar Accent', variable: '--sidebar-accent' },
+    { label: 'Sidebar Accent Foreground', variable: '--sidebar-accent-foreground' },
+    { label: 'Sidebar Border', variable: '--sidebar-border' },
+    { label: 'Sidebar Ring', variable: '--sidebar-ring' },
+  ]}
+/>

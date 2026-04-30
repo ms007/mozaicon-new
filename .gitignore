@@ -37,6 +37,9 @@ playwright/.cache/
 *.sln
 *.sw?
 
+# pnpm content-addressable store (Sandcastle mounts it inside the workspace)
+.pnpm-store/
+
 # Storybook static build output
 storybook-static/
 

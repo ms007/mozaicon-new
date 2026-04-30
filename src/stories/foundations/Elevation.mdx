@@ -1,0 +1,89 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+import { TokenTable } from './_helpers/TokenTable'
+
+<Meta title="Foundations/Elevation" />
+
+# Elevation
+
+Elevation is never "dramatic." The canvas and preview frames carry a combined
+1px border + a two-layer soft shadow so they feel like physical objects resting
+on the base surface — but never like they're floating.
+
+## Shadow Scale
+
+Tailwind's shadow utilities are available globally. The resolved values below
+are read live from CSS custom properties — toggle dark mode to see how they
+adapt.
+
+<TokenTable
+  tokens={[
+    { label: 'shadow-2xs', variable: '--shadow-2xs' },
+    { label: 'shadow-xs', variable: '--shadow-xs' },
+    { label: 'shadow-sm', variable: '--shadow-sm' },
+    { label: 'shadow-md', variable: '--shadow-md' },
+    { label: 'shadow-lg', variable: '--shadow-lg' },
+    { label: 'shadow-xl', variable: '--shadow-xl' },
+    { label: 'shadow-2xl', variable: '--shadow-2xl' },
+  ]}
+/>
+
+## Visual Reference
+
+<div
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+    gap: '2rem',
+    padding: '1.5rem 0',
+  }}
+>
+  {[
+    { label: 'shadow-2xs', cls: 'shadow-2xs' },
+    { label: 'shadow-xs', cls: 'shadow-xs' },
+    { label: 'shadow-sm', cls: 'shadow-sm' },
+    { label: 'shadow-md', cls: 'shadow-md' },
+    { label: 'shadow-lg', cls: 'shadow-lg' },
+    { label: 'shadow-xl', cls: 'shadow-xl' },
+    { label: 'shadow-2xl', cls: 'shadow-2xl' },
+  ].map(({ label, cls }) => (
+    <div
+      key={label}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}
+    >
+      <div className={`bg-card border-border size-20 rounded-md border ${cls}`} />
+      <span className="text-muted-foreground text-xs">{label}</span>
+    </div>
+  ))}
+</div>
+
+## DS Elevation Recipe
+
+The design system prescribes a single, specific elevation treatment for canvas
+and preview frames: a hairline border combined with two soft shadow layers.
+
+<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+  <div
+    className="bg-card rounded-md"
+    style={{
+      width: 180,
+      height: 100,
+      boxShadow: '0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.1)',
+    }}
+  />
+</div>
+
+```css
+box-shadow:
+  /* hairline */
+  0 0 0 1px var(--border),
+  /* near    */ 0 2px 8px rgba(0, 0, 0, 0.15),
+  /* far     */ 0 8px 24px rgba(0, 0, 0, 0.1);
+```
+
+## Usage Guidelines
+
+- Prefer `shadow-xs` for controls (buttons, inputs, toggles).
+- The three-layer recipe above is reserved for the **canvas frame** and
+  **preview panels** — do not apply it to regular UI elements.
+- Never use `shadow-lg` or heavier in the main chrome — the app should feel
+  flat and tool-like, not layered.

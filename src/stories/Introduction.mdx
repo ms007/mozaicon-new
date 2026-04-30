@@ -1,0 +1,32 @@
+{/* Storybook docs-only page — keep concise; link to deep-dives. */}
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Introduction" />
+
+# Mozaicon
+
+Pixel-perfect icon design with a keyboard-first workflow and instant SVG export.
+
+## Design Principles
+
+- **Atomic state** — small, focused Jotai atoms; derived atoms for computed values.
+- **Command pattern** — every mutation is undoable via the command system.
+- **Tokens over magic values** — colours, radii, and spacing come from design tokens wired through Tailwind.
+- **Primitives seam** — shadcn/ui components are vendored and wrapped; app code imports from `primitives/`.
+
+## Deep-Dive Docs
+
+These live in the repo's `docs/` folder and are the authoritative references.
+Paths are repo-relative — open them in your editor or on the source host.
+
+| Doc                     | Covers                                                |
+| ----------------------- | ----------------------------------------------------- |
+| `docs/design-tokens.md` | Token ↔ Tailwind mapping, dark-mode strategy          |
+| `docs/ui-primitives.md` | shadcn vendoring, wrapper patterns, import rules      |
+| `docs/architecture.md`  | State management, command pattern, rendering pipeline |
+| `docs/shapes.md`        | Shape system, adding new shape types                  |
+| `docs/testing.md`       | Test strategy, golden files, Jotai helpers            |
+
+## Storybook Structure
+
+Stories are **co-located** with their components (e.g. `BrandMark.stories.tsx` next to `BrandMark.tsx`). Use the sidebar to browse available components. Every story supports light and dark themes via the toolbar toggle.

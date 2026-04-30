@@ -7,5 +7,6 @@ storybook-static
 # shadcn-generated primitives — regenerated verbatim, formatting follows upstream
 src/components/ui
 
-# Design-system HTML reference — committed as-is from the canonical source
-docs/design-system.html
+# Sandcastle infrastructure + pnpm content-addressable store
+.sandcastle
+.pnpm-store
