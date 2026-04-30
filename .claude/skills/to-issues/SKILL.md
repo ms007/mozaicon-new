@@ -83,8 +83,9 @@ Iterate until the user approves the breakdown.
 ### 5. Resolve the Project v2 + verify labels (once per run)
 
 Resolve the linked Project v2 with a `Status` single-select field
-(`Todo` / `In Progress` / `In Review` / `Done`) and cache `PROJECT_ID`,
-`STATUS_FIELD_ID`, and `TODO_OPTION_ID` for the rest of the run.
+(`Todo` / `In Progress` / `In Review` / `Ready to Merge` / `Done`) and
+cache `PROJECT_ID`, `STATUS_FIELD_ID`, and `TODO_OPTION_ID` for the rest
+of the run.
 
 #### 5a. Discover the project linked to the current repo
 
@@ -117,12 +118,12 @@ gh api graphql -f query='
 #### 5b. Validate the schema
 
 Among the returned projects, select the **single** one whose `Status`
-single-select field has all four options: `Todo`, `In Progress`,
-`In Review`, `Done`.
+single-select field has all five options: `Todo`, `In Progress`,
+`In Review`, `Ready to Merge`, `Done`.
 
 - **Zero matches** → abort with: _"No Project v2 with a Status field
-  (Todo / In Progress / In Review / Done) is linked to this repo — link
-  one before using `to-issues`."_
+  (Todo / In Progress / In Review / Ready to Merge / Done) is linked to
+  this repo — link one before using `to-issues`."_
 - **More than one match** → abort with: _"Multiple Project v2 with the
   expected Status schema are linked to this repo. Auto-discovery requires
   exactly one — please disambiguate manually."_

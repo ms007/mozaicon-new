@@ -1,13 +1,14 @@
-import type { IssueRef } from "../types.ts"
-import { execute } from "./actions.ts"
-import { actionIssueAndStage, computeObservationHash, stageKey } from "./attempts.ts"
-import { decide } from "./decision.ts"
-import { observe } from "./observation.ts"
+import type { IssueRef } from '../types.ts'
+import { execute } from './actions.ts'
+import { actionIssueAndStage, computeObservationHash, stageKey } from './attempts.ts'
+import { decide } from './decision.ts'
+import { observe } from './observation.ts'
 import type {
   Action,
   ActionDeps,
   Decision,
   ExecuteResult,
+  IssuePhase,
   IssueSnapshot,
   MarkerComment,
   Observation,
@@ -17,7 +18,7 @@ import type {
   WorkflowConfig,
   WorkflowResult,
   WorkflowState,
-} from "./types.ts"
+} from './types.ts'
 
 export const DEFAULT_TICK_CAP = 100
 export const DEFAULT_ATTEMPT_CAP = 5
@@ -36,14 +37,14 @@ export interface TickEvent {
 }
 
 export interface StageStartEvent {
-  readonly stage: "implement" | "review" | "merge"
+  readonly stage: 'implement' | 'review' | 'merge'
   readonly issue: IssueRef
   readonly wave?: WaveAnnotation | undefined
   readonly attempt: number
 }
 
 export interface StageEndEvent {
-  readonly stage: "implement" | "review" | "merge"
+  readonly stage: 'implement' | 'review' | 'merge'
   readonly issue: IssueRef
   readonly wave?: WaveAnnotation | undefined
   readonly attempt: number
@@ -71,9 +72,11 @@ export function tick(
 export async function runWorkflow(
   config: WorkflowConfig,
   deps: WorkflowDeps,
+  /** Recovers progress from a prior run (e.g. issues already shipped to Done). */
+  initialPhases?: ReadonlyMap<number, IssuePhase>,
 ): Promise<WorkflowResult> {
   let state: WorkflowState = {
-    phases: new Map(),
+    phases: new Map(initialPhases ?? []),
     tickCount: 0,
     attempts: new Map(),
     reworkReasons: new Map(),
@@ -87,10 +90,10 @@ export async function runWorkflow(
 
     deps.hooks?.onTick?.({ tickCount: state.tickCount, observation, decision })
 
-    if (decision.tag === "done") {
-      return { tag: "done", tickCount: state.tickCount }
+    if (decision.tag === 'done') {
+      return { tag: 'done', tickCount: state.tickCount }
     }
-    if (decision.tag === "blocked") {
+    if (decision.tag === 'blocked') {
       return { ...decision, tickCount: state.tickCount }
     }
 
@@ -147,17 +150,17 @@ export function buildPriorAttemptsBlock(
   markerComments: readonly MarkerComment[],
   currentAttempt: number,
 ): string {
-  if (currentAttempt <= 1) return ""
-  if (markerComments.length === 0) return ""
+  if (currentAttempt <= 1) return ''
+  if (markerComments.length === 0) return ''
 
   return [
-    "<prior-attempts>",
+    '<prior-attempts>',
     `This is attempt ${currentAttempt}. Previous attempts required rework.`,
-    "Address ALL reviewer feedback below — do not repeat prior mistakes.",
-    "",
+    'Address ALL reviewer feedback below — do not repeat prior mistakes.',
+    '',
     ...markerComments.map((c) => c.body),
-    "</prior-attempts>",
-  ].join("\n")
+    '</prior-attempts>',
+  ].join('\n')
 }
 
 function buildPriorAttemptsForAction(
@@ -166,10 +169,10 @@ function buildPriorAttemptsForAction(
   state: WorkflowState,
 ): string {
   // Only stages that take agent prompts can carry prior-attempts context.
-  if (action.tag !== "runImplementer" && action.tag !== "runReviewer") return ""
+  if (action.tag !== 'runImplementer' && action.tag !== 'runReviewer') return ''
 
   const snapshot = findSnapshot(observation, action.issue.number)
-  if (!snapshot) return ""
+  if (!snapshot) return ''
 
   const currentAttempt = state.attempts.get(action.issue.number) ?? 1
   return buildPriorAttemptsBlock(snapshot.markerComments, currentAttempt)
@@ -181,24 +184,24 @@ function findSnapshot(observation: Observation, issueNumber: number): IssueSnaps
 }
 
 function buildStageEventBase(
-  decision: Extract<Decision, { tag: "act" }>,
+  decision: Extract<Decision, { tag: 'act' }>,
   state: WorkflowState,
 ): StageStartEvent | null {
   const { action, wave } = decision
   switch (action.tag) {
-    case "runImplementer":
-    case "runReviewer":
+    case 'runImplementer':
+    case 'runReviewer':
       return {
-        stage: action.tag === "runImplementer" ? "implement" : "review",
+        stage: action.tag === 'runImplementer' ? 'implement' : 'review',
         issue: action.issue,
         wave,
         attempt: (state.stageAttempts.get(stageKey(action.issue.number, action.tag)) ?? 0) + 1,
       }
-    case "runMerger": {
+    case 'runMerger': {
       const first = action.issues[0]
       if (!first) return null
       return {
-        stage: "merge",
+        stage: 'merge',
         issue: first,
         wave,
         attempt: (state.stageAttempts.get(stageKey(first.number, action.tag)) ?? 0) + 1,

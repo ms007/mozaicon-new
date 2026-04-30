@@ -1,17 +1,17 @@
-import { execFile, execFileSync } from "node:child_process"
-import { appendFile, mkdir } from "node:fs/promises"
-import { join } from "node:path"
-import { promisify } from "node:util"
-import type { AgentStreamEvent } from "@ai-hero/sandcastle"
-import * as sandcastle from "@ai-hero/sandcastle"
-import { ulid } from "ulid"
+import { execFile, execFileSync } from 'node:child_process'
+import { appendFile, mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+import type { AgentStreamEvent } from '@ai-hero/sandcastle'
+import * as sandcastle from '@ai-hero/sandcastle'
+import { ulid } from 'ulid'
 import {
   type OrchestratorOptions,
   type ResolvedConfig,
   resolveConfig,
   spreadOptional,
-} from "./config.ts"
-import { type BaseRef, captureBaseRef, countCommitsAhead, ensureCleanWorktree } from "./git.ts"
+} from './config.ts'
+import { type BaseRef, captureBaseRef, countCommitsAhead, ensureCleanWorktree } from './git.ts'
 import {
   casFastForward,
   listWorktreesForBranch,
@@ -19,12 +19,13 @@ import {
   safeDeleteBranch,
   shortSha,
   tempMergerBranchName,
-} from "./git.ts"
+} from './git.ts'
 import {
   type ActionDeps,
   DEFAULT_ATTEMPT_CAP,
   DEFAULT_TICK_CAP,
   type ImplementerStats,
+  type IssuePhase,
   type IssueRef,
   MARKER_COMMENT_PREFIX,
   type MarkerComment,
@@ -35,21 +36,22 @@ import {
   type WorkflowResult,
   actionIssueAndStage,
   runWorkflow,
-} from "./manager/index.ts"
-import { createMultiplexingRenderer } from "./multiplexing-renderer.ts"
-import { resolveOutputCapabilities } from "./palette.ts"
-import { type RunHeader, openPrettyStdoutSink } from "./pretty-stdout-sink.ts"
+} from './manager/index.ts'
+import { createMultiplexingRenderer } from './multiplexing-renderer.ts'
+import { resolveOutputCapabilities } from './palette.ts'
+import { type RunHeader, openPrettyStdoutSink } from './pretty-stdout-sink.ts'
 import {
   type ProjectContext,
   type RelatedIssue,
+  type StatusName,
   defaultBranchLookup,
   detectRepo,
   getRelatedIssues,
   moveStatus,
   resolveProject,
   unblockDependents,
-} from "./project.ts"
-import { runImplementer, runMerger, runReviewer } from "./stages.ts"
+} from './project.ts'
+import { runImplementer, runMerger, runReviewer } from './stages.ts'
 
 const execFileP = promisify(execFile)
 
@@ -58,7 +60,7 @@ const execFileP = promisify(execFile)
  * this via `OrchestratorOptions.logDir`; this discriminated union is an
  * implementation detail and is **not** exported from the package.
  */
-type TranscriptOption = { readonly kind: "file"; readonly dir: string } | { readonly kind: "off" }
+type TranscriptOption = { readonly kind: 'file'; readonly dir: string } | { readonly kind: 'off' }
 
 export async function runOrchestrator(options: OrchestratorOptions): Promise<WorkflowResult> {
   ensureCleanWorktree()
@@ -81,9 +83,10 @@ export async function runOrchestrator(options: OrchestratorOptions): Promise<Wor
     tickCap: resolved.tickCap,
     attemptCap: resolved.attemptCap,
   })
+  const initialPhases = buildInitialPhases(report)
 
   const transcriptOption: TranscriptOption =
-    resolved.logDir !== undefined ? { kind: "file", dir: resolved.logDir } : { kind: "off" }
+    resolved.logDir !== undefined ? { kind: 'file', dir: resolved.logDir } : { kind: 'off' }
   const transcript = await openTranscriptSink(
     resolved.seedIssue,
     runId,
@@ -127,7 +130,7 @@ export async function runOrchestrator(options: OrchestratorOptions): Promise<Wor
   let result: WorkflowResult | null = null
   let error: Error | undefined
   try {
-    result = await runWorkflow(config, deps)
+    result = await runWorkflow(config, deps, initialPhases)
     refreshHostWorktree(baseRef, result, console.log)
     return result
   } catch (err) {
@@ -157,7 +160,7 @@ function createSandboxCache(resolved: ResolvedConfig) {
       const created = sandcastle.createSandbox({
         sandbox,
         branch: issue.branch,
-        ...spreadOptional("hooks", hooks),
+        ...spreadOptional('hooks', hooks),
       })
       open.set(issue.number, created)
       return created
@@ -191,6 +194,46 @@ function buildWorkflowConfig(
   }
 }
 
+/**
+ * Recover phase from the GitHub Project board so a restart does not redo work
+ * that has already happened on a prior run.
+ *
+ * "In Progress" is intentionally left at the default "todo": we cannot tell
+ * from status alone whether the implementer has run, and re-running it on the
+ * existing branch is safe (the agent commits on top of what is already there).
+ *
+ * "Ready to Merge" recovers as `reviewed` — the reviewer already approved on
+ * a prior run, so we skip straight to the next merger wave instead of paying
+ * for another review.
+ *
+ * Issue state (OPEN/CLOSED) is checked first and overrides Status: a CLOSED
+ * issue is the strongest possible "done" signal, and the Status field can be
+ * cleared, rolled back, or fall out of sync independently. Without this, an
+ * issue that was finalized (or hand-closed) on a prior run gets re-claimed
+ * and re-implemented when its Status was reset to Todo / In Progress / empty.
+ */
+const STATUS_TO_PHASE: Partial<Record<StatusName, IssuePhase>> = {
+  'In Review': 'promoted',
+  'Ready to Merge': 'reviewed',
+  Done: 'done',
+}
+
+function buildInitialPhases(report: {
+  seed: RelatedIssue
+  children: readonly RelatedIssue[]
+}): Map<number, IssuePhase> {
+  const phases = new Map<number, IssuePhase>()
+  for (const issue of [report.seed, ...report.children]) {
+    if (issue.state === 'CLOSED') {
+      phases.set(issue.number, 'done')
+      continue
+    }
+    const phase = issue.status ? STATUS_TO_PHASE[issue.status] : undefined
+    if (phase) phases.set(issue.number, phase)
+  }
+  return phases
+}
+
 function toIssueRef(issue: RelatedIssue): IssueRef {
   return {
     number: issue.number,
@@ -208,8 +251,8 @@ function buildObserveDeps(baseRef: BaseRef): ObserveDeps {
 }
 
 function fetchMarkerCommentsSync(issueNumber: number): readonly MarkerComment[] {
-  const stdout = execFileSync("gh", ["issue", "view", String(issueNumber), "--json", "comments"], {
-    encoding: "utf8",
+  const stdout = execFileSync('gh', ['issue', 'view', String(issueNumber), '--json', 'comments'], {
+    encoding: 'utf8',
     maxBuffer: 10 * 1024 * 1024,
   })
   const parsed = JSON.parse(stdout) as { comments: { body: string }[] }
@@ -223,21 +266,21 @@ export function commitMergerResultToBaseRef(
   mergeBranch: string,
   log: (msg: string) => void,
 ): void {
-  if (baseRef.refName === "HEAD") {
+  if (baseRef.refName === 'HEAD') {
     log(`Detached HEAD: skipping ref update. Merger result preserved on ${mergeBranch}.`)
     return
   }
 
   try {
     const tipResult = resolveRef(mergeBranch)
-    if (tipResult.kind === "missing") {
+    if (tipResult.kind === 'missing') {
       throw new Error(`Merger branch ${mergeBranch} not found — merger may have crashed.`)
     }
     const mergerTip = tipResult.sha
 
     const casResult = casFastForward(baseRef.refName, baseRef.sha, mergerTip)
     switch (casResult.kind) {
-      case "ok": {
+      case 'ok': {
         log(`${baseRef.refName} advanced to ${shortSha(mergerTip)}.`)
         safeDeleteBranch(mergeBranch, { force: true })
         const worktrees = listWorktreesForBranch(baseRef.refName)
@@ -246,19 +289,19 @@ export function commitMergerResultToBaseRef(
         }
         return
       }
-      case "moved":
+      case 'moved':
         throw new Error(
           `${baseRef.refName} moved (expected ${shortSha(baseRef.sha)}, actual ${shortSha(casResult.actualSha)}). ` +
             `Merger result preserved on ${mergeBranch} — finish the merge by hand.`,
         )
-      case "missing":
+      case 'missing':
         throw new Error(
           `${baseRef.refName} no longer exists. ` +
             `Merger result preserved on ${mergeBranch} — finish the merge by hand.`,
         )
     }
   } finally {
-    if (resolveRef(mergeBranch).kind === "resolved") {
+    if (resolveRef(mergeBranch).kind === 'resolved') {
       try {
         safeDeleteBranch(mergeBranch)
       } catch {
@@ -283,16 +326,16 @@ export function commitWaveMergerResult(
     )
   }
 
-  if (baseRef.refName === "HEAD") {
+  if (baseRef.refName === 'HEAD') {
     const tip = resolveRef(mergeBranch)
-    if (tip.kind === "resolved") {
-      return { sha: tip.sha, refName: "HEAD" }
+    if (tip.kind === 'resolved') {
+      return { sha: tip.sha, refName: 'HEAD' }
     }
     return baseRef
   }
 
   const tip = resolveRef(baseRef.refName)
-  if (tip.kind === "resolved") {
+  if (tip.kind === 'resolved') {
     return { sha: tip.sha, refName: baseRef.refName }
   }
   return baseRef
@@ -314,7 +357,7 @@ function buildActionDeps(
     moveStatus: (itemId, status) => moveStatus(ctx, itemId, status),
     unblockDependents: async (n) => unblockDependents(ctx, n),
     closeIssue: async (n) => {
-      await execFileP("gh", ["issue", "close", String(n)])
+      await execFileP('gh', ['issue', 'close', String(n)])
     },
     runImplementer: async (issue, priorAttempts): Promise<ImplementerStats> => {
       const sandbox = await sandboxes.get(issue)
@@ -340,7 +383,7 @@ function buildActionDeps(
         runId,
         ...(agentStreamCallback && { onAgentStreamEvent: agentStreamCallback }),
       })
-      if (verdict.tag === "approved") await sandboxes.release(issue.number)
+      if (verdict.tag === 'approved') await sandboxes.release(issue.number)
       return verdict
     },
     runMerger: async (issues, priorAttempts) => {
@@ -363,7 +406,7 @@ function buildActionDeps(
       await Promise.all(issues.map((i) => sandboxes.release(i.number)))
     },
     postMarkerComment: async (n, body) => {
-      await execFileP("gh", ["issue", "comment", String(n), "--body", body])
+      await execFileP('gh', ['issue', 'comment', String(n), '--body', body])
     },
     getMarkerComments: async (n) => fetchMarkerCommentsSync(n),
   }
@@ -382,13 +425,13 @@ async function openTranscriptSink(
   repo: string,
   option: TranscriptOption,
 ): Promise<TranscriptSink> {
-  if (option.kind === "off") {
+  if (option.kind === 'off') {
     return { onTick: () => {}, close: async () => {} }
   }
   const { dir } = option
   const runDir = join(dir, runId)
   await mkdir(runDir, { recursive: true })
-  const path = join(runDir, "workflow.log")
+  const path = join(runDir, 'workflow.log')
   await appendFile(path, `[start] seed=${seedNumber} runId=${runId} owner=${owner} repo=${repo}\n`)
 
   let writeChain: Promise<void> = Promise.resolve()
@@ -401,7 +444,7 @@ async function openTranscriptSink(
   return {
     path,
     onTick: (event) => {
-      if (event.decision.tag === "act") {
+      if (event.decision.tag === 'act') {
         lastTarget = actionIssueAndStage(event.decision.action)
       }
       append(`[tick ${event.tickCount}] ${JSON.stringify(summarizeTickEvent(event))}\n`)
@@ -417,7 +460,7 @@ async function openTranscriptSink(
       } else if (result) {
         append(`\n[result] runId=${runId} ${JSON.stringify(result)}\n`)
       } else {
-        append("\n[aborted]\n")
+        append('\n[aborted]\n')
       }
       await writeChain
     },
@@ -442,28 +485,28 @@ function summarizeTickEvent(event: TickEvent): unknown {
   }
 }
 
-function summarizeDecision(decision: TickEvent["decision"]): unknown {
-  if (decision.tag !== "act") return decision
+function summarizeDecision(decision: TickEvent['decision']): unknown {
+  if (decision.tag !== 'act') return decision
   const { action, wave } = decision
   const waveInfo = wave ? { wave: { index: wave.index, issues: [...wave.issues] } } : {}
   switch (action.tag) {
-    case "runMerger":
+    case 'runMerger':
       return {
-        tag: "act",
+        tag: 'act',
         action: action.tag,
         issues: action.issues.map((i) => i.number),
         ...waveInfo,
       }
-    case "applyReworkVerdict":
+    case 'applyReworkVerdict':
       return {
-        tag: "act",
+        tag: 'act',
         action: action.tag,
         issue: action.issue.number,
         reason: action.reason,
         ...waveInfo,
       }
     default:
-      return { tag: "act", action: action.tag, issue: action.issue.number, ...waveInfo }
+      return { tag: 'act', action: action.tag, issue: action.issue.number, ...waveInfo }
   }
 }
 
@@ -472,21 +515,21 @@ export function refreshHostWorktree(
   result: WorkflowResult,
   log: (msg: string) => void,
 ): void {
-  if (result.tag !== "done") {
-    log("Worktree refresh skipped: workflow not done (result was blocked).")
+  if (result.tag !== 'done') {
+    log('Worktree refresh skipped: workflow not done (result was blocked).')
     return
   }
-  if (baseRef.refName === "HEAD") {
-    log("Worktree refresh skipped: detached HEAD at run start.")
+  if (baseRef.refName === 'HEAD') {
+    log('Worktree refresh skipped: detached HEAD at run start.')
     return
   }
   const tip = resolveRef(baseRef.refName)
-  if (tip.kind === "missing" || tip.sha === baseRef.sha) {
+  if (tip.kind === 'missing' || tip.sha === baseRef.sha) {
     log(`Worktree refresh skipped: ${baseRef.refName} did not move.`)
     return
   }
-  const currentBranch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    encoding: "utf8",
+  const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    encoding: 'utf8',
   }).trim()
   if (currentBranch !== baseRef.refName) {
     log(`Worktree refresh skipped: host HEAD switched from ${baseRef.refName} to ${currentBranch}.`)
@@ -495,12 +538,12 @@ export function refreshHostWorktree(
   try {
     ensureCleanWorktree(baseRef.sha)
   } catch {
-    log("Worktree refresh skipped: worktree is dirty.")
+    log('Worktree refresh skipped: worktree is dirty.')
     return
   }
-  execFileSync("git", ["reset", "--hard", `refs/heads/${baseRef.refName}`])
+  execFileSync('git', ['reset', '--hard', `refs/heads/${baseRef.refName}`])
   log(`Refreshed host worktree to ${baseRef.refName} (${shortSha(tip.sha)}).`)
 }
 
 /** Test seam — internal helpers exposed for unit tests. Not a public API. */
-export const __testing = { openTranscriptSink }
+export const __testing = { openTranscriptSink, buildInitialPhases }

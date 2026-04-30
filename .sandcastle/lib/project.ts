@@ -4,29 +4,37 @@
  * - `resolveProject` auto-discovers the single Project v2 linked to the host
  *   repo and caches its IDs (project, Status field, Status option IDs). It
  *   throws fast if no project is linked or the Status schema does not match
- *   the Todo / In Progress / In Review / Done convention used by the
- *   `to-issues` skill.
+ *   the Todo / In Progress / In Review / Ready to Merge / Done convention
+ *   used by the `to-issues` skill.
  * - `pickNextEligibleIssue` picks the oldest open `sandcastle`-labeled issue
  *   whose project Status is `Todo` and whose blockers are all resolved.
  * - `getRelatedIssues` resolves a seed issue plus its parent (PRD) and the
  *   parent's other sub-issues, annotated with `eligible`, dependency lists,
  *   and per-branch git state so the planner can decide which to schedule and
  *   recover stale runs.
- * - `moveStatus` updates a project item's Status to one of the four canonical
+ * - `moveStatus` updates a project item's Status to one of the five canonical
  *   names.
  *
  * All GraphQL is shelled out via `gh api graphql` so the orchestrator inherits
  * the user's existing `gh auth login` session — no PAT plumbing.
  */
-import { execFile } from "node:child_process"
-import { promisify } from "node:util"
-import { type BranchInfo, issueBranchName, readBranchInfo } from "./git.ts"
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { type BranchInfo, issueBranchName, readBranchInfo } from './git.ts'
 
 const execFileP = promisify(execFile)
 
-export const REQUIRED_STATUSES = ["Todo", "In Progress", "In Review", "Done"] as const
+export const REQUIRED_STATUSES = [
+  'Todo',
+  'In Progress',
+  'In Review',
+  'Ready to Merge',
+  'Done',
+] as const
 
 export type StatusName = (typeof REQUIRED_STATUSES)[number]
+
+export type IssueState = 'OPEN' | 'CLOSED'
 
 export interface ProjectContext {
   readonly owner: string
@@ -61,9 +69,16 @@ export interface RelatedIssue {
   /** `null` when not on the board, or when its Status is outside our schema. */
   readonly status: StatusName | null
   /**
-   * `true` iff: on the board, Status=Todo, has `sandcastle` label, and
-   * `blockedBy.length === 0`. Branch state does NOT factor in — recovery
-   * is the planner's call, not an automatic gate.
+   * GitHub issue state. CLOSED is the strongest possible signal that the
+   * issue has shipped (or has been hand-pulled out of the queue), and is the
+   * authoritative source for "done" recovery — the project Status field can
+   * be cleared or rolled back independently.
+   */
+  readonly state: IssueState
+  /**
+   * `true` iff: on the board, OPEN, Status=Todo, has `sandcastle` label, and
+   * `blockedBy.length === 0`. Branch state does NOT factor in — recovery is
+   * the planner's call, not an automatic gate.
    */
   readonly eligible: boolean
   /** Issue numbers (in the same repo) that block this one. Empty when unblocked. */
@@ -131,6 +146,7 @@ export interface RelatedIssueNode {
   readonly number: number
   readonly title: string
   readonly body: string
+  readonly state: IssueState
   readonly labels: { readonly nodes: readonly { readonly name: string }[] }
   readonly blockedBy: {
     readonly nodes: readonly { readonly number: number }[]
@@ -168,7 +184,7 @@ export interface StatusFieldValue {
  * point that needs to scope project/issue queries to the host repo.
  */
 export async function detectRepo(): Promise<{ owner: string; repo: string }> {
-  const { stdout } = await execFileP("gh", ["repo", "view", "--json", "owner,name"])
+  const { stdout } = await execFileP('gh', ['repo', 'view', '--json', 'owner,name'])
   const parsed = JSON.parse(stdout) as {
     owner: { login: string }
     name: string
@@ -224,11 +240,11 @@ export function buildProjectContext(
 
   if (candidates.length === 0) {
     throw new Error(
-      `No Project v2 with a Status field (${REQUIRED_STATUSES.join(" / ")}) linked to ${owner}/${repo}. Link one before running the orchestrator.`,
+      `No Project v2 with a Status field (${REQUIRED_STATUSES.join(' / ')}) linked to ${owner}/${repo}. Link one before running the orchestrator.`,
     )
   }
   if (candidates.length > 1) {
-    const titles = candidates.map((p) => `#${p.number} "${p.title}"`).join(", ")
+    const titles = candidates.map((p) => `#${p.number} "${p.title}"`).join(', ')
     throw new Error(
       `Multiple Project v2 with a matching Status schema linked to ${owner}/${repo}: ${titles}. Auto-discovery requires exactly one.`,
     )
@@ -238,12 +254,12 @@ export function buildProjectContext(
   if (!project) {
     // Defensive — `candidates.length === 0` is handled above; this guards
     // strict `noUncheckedIndexedAccess`.
-    throw new Error("internal: candidate project disappeared after filter")
+    throw new Error('internal: candidate project disappeared after filter')
   }
   const statusField = project.fields.nodes.find((f): f is StatusField => isStatusField(f))
   if (!statusField) {
     // Defensive — `hasStatusSchema` already proved this exists.
-    throw new Error("internal: status field disappeared after filter")
+    throw new Error('internal: status field disappeared after filter')
   }
 
   const statusOptions = mapStatusOptions(statusField.options)
@@ -325,7 +341,7 @@ export function selectNextEligibleIssue(
 
     const projectItem = issue.projectItems.nodes.find((item) => item.project.id === ctx.projectId)
     if (!projectItem) continue
-    if (readStatus(projectItem, ctx) !== "Todo") continue
+    if (readStatus(projectItem, ctx) !== 'Todo') continue
 
     return {
       number: issue.number,
@@ -446,9 +462,7 @@ export async function unblockDependents(
     await graphql<unknown>(
       `
         mutation ($issueId: ID!, $blockingIssueId: ID!) {
-          removeBlockedBy(
-            input: { issueId: $issueId, blockingIssueId: $blockingIssueId }
-          ) {
+          removeBlockedBy(input: { issueId: $issueId, blockingIssueId: $blockingIssueId }) {
             issue {
               id
             }
@@ -527,6 +541,7 @@ const RELATED_ISSUE_META_FIELDS = `
   id
   number
   title
+  state
   labels(first: 20) { nodes { name } }
   blockedBy(first: 50) { nodes { number } }
   blocking(first: 50) { nodes { number } }
@@ -579,13 +594,19 @@ function toRelatedIssue(
   const status = item ? readStatus(item, ctx) : null
   const blockedBy = node.blockedBy.nodes.map((n) => n.number)
   const blocking = node.blocking.nodes.map((n) => n.number)
-  const hasSandcastleLabel = node.labels.nodes.some((l) => l.name === "sandcastle")
+  const hasSandcastleLabel = node.labels.nodes.some((l) => l.name === 'sandcastle')
   return {
     number: node.number,
     title: node.title,
     itemId: item?.id ?? null,
     status,
-    eligible: item != null && status === "Todo" && hasSandcastleLabel && blockedBy.length === 0,
+    state: node.state,
+    eligible:
+      node.state === 'OPEN' &&
+      item != null &&
+      status === 'Todo' &&
+      hasSandcastleLabel &&
+      blockedBy.length === 0,
     blockedBy,
     blocking,
     hasSandcastleLabel,
@@ -603,7 +624,7 @@ function toRelatedIssueWithBody(
 
 function readStatus(item: ProjectItemNode, ctx: ProjectContext): StatusName | null {
   const value = item.fieldValues.nodes.find(
-    (v): v is StatusFieldValue => v != null && "field" in v && v.field?.id === ctx.statusFieldId,
+    (v): v is StatusFieldValue => v != null && 'field' in v && v.field?.id === ctx.statusFieldId,
   )
   if (!value) return null
   for (const name of REQUIRED_STATUSES) {
@@ -613,7 +634,7 @@ function readStatus(item: ProjectItemNode, ctx: ProjectContext): StatusName | nu
 }
 
 function isStatusField(f: StatusField | Record<string, never>): f is StatusField {
-  return "name" in f && "options" in f && f.name === "Status" && Array.isArray(f.options)
+  return 'name' in f && 'options' in f && f.name === 'Status' && Array.isArray(f.options)
 }
 
 function hasStatusSchema(project: ProjectV2Node): boolean {
@@ -639,13 +660,13 @@ function mapStatusOptions(
 }
 
 async function graphql<T>(query: string, variables: Record<string, string | number>): Promise<T> {
-  const args = ["api", "graphql", "-f", `query=${query}`]
+  const args = ['api', 'graphql', '-f', `query=${query}`]
   for (const [k, v] of Object.entries(variables)) {
     // `-F` sends typed (number/bool); `-f` sends string. GraphQL `Int!`
     // variables fail with `-f` because gh quotes the value.
-    args.push(typeof v === "number" ? "-F" : "-f", `${k}=${v}`)
+    args.push(typeof v === 'number' ? '-F' : '-f', `${k}=${v}`)
   }
-  const { stdout } = await execFileP("gh", args, {
+  const { stdout } = await execFileP('gh', args, {
     maxBuffer: 10 * 1024 * 1024,
   })
   const parsed = JSON.parse(stdout) as { data?: T; errors?: unknown }
@@ -653,7 +674,7 @@ async function graphql<T>(query: string, variables: Record<string, string | numb
     throw new Error(`gh api graphql errors: ${JSON.stringify(parsed.errors)}`)
   }
   if (!parsed.data) {
-    throw new Error("gh api graphql returned no data")
+    throw new Error('gh api graphql returned no data')
   }
   return parsed.data
 }

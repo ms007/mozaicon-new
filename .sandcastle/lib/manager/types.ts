@@ -1,19 +1,19 @@
-import type { StatusName } from "../project.ts"
-import type { IssueRef } from "../types.ts"
+import type { StatusName } from '../project.ts'
+import type { IssueRef } from '../types.ts'
 
 export type IssuePhase =
-  | "todo"
-  | "claimed"
-  | "implemented"
-  | "promoted"
-  | "reviewed"
-  | "reviewedRework"
-  | "merged"
-  | "done"
+  | 'todo'
+  | 'claimed'
+  | 'implemented'
+  | 'promoted'
+  | 'reviewed'
+  | 'reviewedRework'
+  | 'merged'
+  | 'done'
 
 export type ReviewerVerdict =
-  | { readonly tag: "approved" }
-  | { readonly tag: "rework"; readonly reason: string }
+  | { readonly tag: 'approved' }
+  | { readonly tag: 'rework'; readonly reason: string }
 
 export interface MarkerComment {
   readonly body: string
@@ -45,37 +45,37 @@ export interface WaveAnnotation {
 }
 
 export type Decision =
-  | { readonly tag: "act"; readonly action: Action; readonly wave?: WaveAnnotation }
-  | { readonly tag: "done" }
+  | { readonly tag: 'act'; readonly action: Action; readonly wave?: WaveAnnotation }
+  | { readonly tag: 'done' }
   | {
-      readonly tag: "blocked"
-      readonly reason: "tickCap"
+      readonly tag: 'blocked'
+      readonly reason: 'tickCap'
       readonly ticks: number
     }
   | {
-      readonly tag: "blocked"
-      readonly reason: "stalled"
+      readonly tag: 'blocked'
+      readonly reason: 'stalled'
       readonly issue: IssueRef
-      readonly stage: Action["tag"]
+      readonly stage: Action['tag']
     }
   | {
-      readonly tag: "blocked"
-      readonly reason: "tooManyAttempts"
+      readonly tag: 'blocked'
+      readonly reason: 'tooManyAttempts'
       readonly issue: IssueRef
-      readonly stage: Action["tag"]
+      readonly stage: Action['tag']
       readonly attempts: number
     }
 
 export type Action =
-  | { readonly tag: "claimIssue"; readonly issue: IssueRef }
-  | { readonly tag: "runImplementer"; readonly issue: IssueRef }
-  | { readonly tag: "promoteToReview"; readonly issue: IssueRef }
-  | { readonly tag: "runReviewer"; readonly issue: IssueRef }
-  | { readonly tag: "runMerger"; readonly issues: readonly IssueRef[] }
-  | { readonly tag: "finalizeIssue"; readonly issue: IssueRef }
-  | { readonly tag: "finalizePrd"; readonly issue: IssueRef }
+  | { readonly tag: 'claimIssue'; readonly issue: IssueRef }
+  | { readonly tag: 'runImplementer'; readonly issue: IssueRef }
+  | { readonly tag: 'promoteToReview'; readonly issue: IssueRef }
+  | { readonly tag: 'runReviewer'; readonly issue: IssueRef }
+  | { readonly tag: 'runMerger'; readonly issues: readonly IssueRef[] }
+  | { readonly tag: 'finalizeIssue'; readonly issue: IssueRef }
+  | { readonly tag: 'finalizePrd'; readonly issue: IssueRef }
   | {
-      readonly tag: "applyReworkVerdict"
+      readonly tag: 'applyReworkVerdict'
       readonly issue: IssueRef
       readonly reason: string
     }
@@ -98,10 +98,10 @@ export interface WorkflowState {
   readonly prevAction: Action | null
 }
 
-export type BlockedDecision = Extract<Decision, { readonly tag: "blocked" }>
+export type BlockedDecision = Extract<Decision, { readonly tag: 'blocked' }>
 
 export type WorkflowResult =
-  | { readonly tag: "done"; readonly tickCount: number }
+  | { readonly tag: 'done'; readonly tickCount: number }
   | (BlockedDecision & { readonly tickCount: number })
 
 export interface ObserveDeps {
@@ -115,9 +115,9 @@ export interface ImplementerStats {
 }
 
 export type StageOutcome =
-  | { readonly tag: "implementer"; readonly stats: ImplementerStats }
-  | { readonly tag: "reviewer"; readonly verdict: ReviewerVerdict }
-  | { readonly tag: "merger"; readonly issues: readonly number[] }
+  | { readonly tag: 'implementer'; readonly stats: ImplementerStats }
+  | { readonly tag: 'reviewer'; readonly verdict: ReviewerVerdict }
+  | { readonly tag: 'merger'; readonly issues: readonly number[] }
 
 export interface ExecuteResult {
   readonly state: WorkflowState
